@@ -1,20 +1,40 @@
-
 # Bible AI Pipeline (Slovenská Biblia pre AI modely)
 
 Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), krížových odkazov (OpenBible.info cross-references), geografických GPS dát a lokálnych MP3 audio nahrávok.
 
 Výsledné dáta sú pripravené pre:
+
 1. **Google NotebookLM** (štruktúrovaný Markdown rozdelený do súborov v limite 50 zdrojov).
 2. **Antigravity / SQL agentov** (SQLite databáza s FTS5 full-textovým indexom).
 3. **Vektorové databázy / RAG** (JSONL formát pripravený pre ChromaDB, Pinecone, Qdrant).
 
 ---
 
+## ⚖️ Disclaimer & Autorské práva (Copyright)
+
+Tento projekt je **bezplatný open-source** (vydaný pod licenciou MIT) vytvorený výhradne na výskumné, študijné, vzdelávacie a nekomerčné účely. Neobsahuje žiadne priame speňaženie a kód je verejne prístupný pre komunitu.
+
+Pri používaní projektu a jeho dát, prosím, berte na vedomie nasledovné:
+
+### 1. Autorské práva na texty a preklady
+
+* **Slovenský ekumenický preklad (SEB):** Texty sú chránené autorským zákonom a patria ich príslušným držiteľom práv (Slovenská biblická spoločnosť). Surový XML súbor `SlovakianSEBBible.xml` ani MP3 nahrávky **nie sú priamou súčasťou tohto git repozitára** z dôvodu ochrany autorských práv. Pipeline je navrhnutá tak, aby si oprávnený používateľ stiahol/pripravil tieto súbory do svojho lokálneho prostredia sám (napr. cez `task download` z voľne dostupných internetových zdrojov alebo vlastným importom).
+* **OCP Apokryfy / Pseudepigrafy (napr. 1En, Jubi):** Sú prekladané z historických, verejne dostupných (public domain) anglických a kritických predlôh (Online Critical Pseudepigrapha). Slovenský preklad týchto apokryfov je generovaný lokálnym alebo cloudovým AI modelom.
+
+### 2. Audio nahrávky
+
+* MP3 súbory a CD nahrávky spomenuté v projekte sú chránené autorským právom ich autorov a vydavateľov. Tento repozitár slúži len ako nástroj (pipeline) na analýzu, indexáciu a generovanie časových značiek (alignment) pre lokálne súbory, ktoré používateľ už legálne vlastní.
+
+### 3. Použitie AI (Umelá inteligencia) a Záruky
+
+* Preklady apokryfov a obohatené metadáta sú generované prostredníctvom veľkých jazykových modelov (LLM). Hoci prebieha dvojprechodová korektúra, AI môže generovať nepresnosti alebo halucinácie.
+* Tento softvér je poskytovaný „tak, ako je“ (as is), bez akejkoľvek záruky. Autori projektu nenesú žiadnu zodpovednosť za akékoľvek porušenie autorských práv tretích strán spôsobené nesprávnym alebo komerčným šírením dát získaných prostredníctvom tejto pipeline.
+
+---
+
 ## 📁 Štruktúra projektu
 
-
 ```
-
 bible-ai/
 ├── Taskfile.yml                  # Automatizácia úloh (taskfile.dev)
 ├── config.py                     # Cesty, URL adresy a mapovania OSIS kódov
@@ -23,9 +43,8 @@ bible-ai/
 │   ├── raw/                      # Surové stiahnuté dáta
 │   │   ├── SlovakianSEBBible.xml # XML text Biblie
 │   │   ├── cross_references.csv  # Krížové odkazy s váhami (OpenBible)
-│   │   ├── modern.jsonl          # GPS geokódovanie biblických miest
-│   │   └── audio_index.json      # Vygenerovaný index MP3 kapitol
-│   └── audio/                    # Priečinki s MP3 nahrávkami (CD 1 až 8 + Dt)
+│   │   └── modern.jsonl          # GPS geokódovanie biblických miest
+│   └── audio/                    # Priečinky s MP3 nahrávkami (CD 1 až 8 + Dt)
 ├── scripts/
 │   ├── 01_download.py            # Stiahnutie XML Biblie, cross-references a geodát
 │   ├── 02_parse_audio.py         # Preskenovanie MP3 súborov a namapovanie na knihy/kapitoly
@@ -35,9 +54,9 @@ bible-ai/
 │   ├── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
 │   └── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov do slovenčiny
 └── outputs/
-├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
-├── sqlite/                   # Databáza biblia.sqlite
-└── jsonl/                    # Dataset biblia.jsonl
+    ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
+    ├── sqlite/                   # Databáza biblia.sqlite
+    └── jsonl/                    # Dataset biblia.jsonl
 
 ```
 
@@ -48,6 +67,7 @@ bible-ai/
 Celý proces riadi nástroj [Task](https://taskfile.dev/):
 
 ### Zoznam dostupných príkazov
+
 ```bash
 task
 # alebo

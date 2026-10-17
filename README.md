@@ -1,5 +1,7 @@
 # Bible AI Pipeline (Slovenská Biblia pre AI modely)
 
+![Bible AI Pipeline](title.jpg)
+
 Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), krížových odkazov (OpenBible.info cross-references), geografických GPS dát a lokálnych MP3 audio nahrávok.
 
 Výsledné dáta sú pripravené pre:

@@ -22,6 +22,14 @@ def main():
         with open(config.FILE_AUDIO_INDEX, "r", encoding="utf-8") as f:
             audio_index = json.load(f)
 
+    audio_timestamps = {}
+    if config.FILE_AUDIO_TIMESTAMPS.exists():
+        try:
+            with open(config.FILE_AUDIO_TIMESTAMPS, "r", encoding="utf-8") as f:
+                audio_timestamps = json.load(f)
+        except Exception:
+            audio_timestamps = {}
+
     if not config.FILE_BIBLE_XML.exists():
         print(f"Chyba: Súbor {config.FILE_BIBLE_XML} neexistuje! Spustite najprv 'task download'.")
         return
@@ -40,11 +48,15 @@ def main():
 
             for chapter in book["chapters"]:
                 chap_num = chapter["chapter_num"]
-                audio_path = audio_index.get(f"{osis_code}_{chap_num}")
+                audio_key = f"{osis_code}_{chap_num}"
+                audio_path = audio_index.get(audio_key)
+                chap_timestamps = audio_timestamps.get(audio_key, {}).get("verses", {})
 
                 for verse in chapter["verses"]:
                     verse_num = verse["verse_num"]
                     verse_text = verse["text"]
+
+                    v_ts = chap_timestamps.get(str(verse_num))
 
                     record = {
                         "id": f"{osis_code}_{chap_num}_{verse_num}",
@@ -54,7 +66,11 @@ def main():
                         "chapter": chap_num,
                         "verse": verse_num,
                         "text": verse_text,
-                        "audio_file": audio_path
+                        "audio_file": audio_path,
+                        "audio_start": v_ts.get("start_formatted") if v_ts else None,
+                        "audio_end": v_ts.get("end_formatted") if v_ts else None,
+                        "audio_start_sec": v_ts.get("start") if v_ts else None,
+                        "audio_end_sec": v_ts.get("end") if v_ts else None
                     }
                     out.write(json.dumps(record, ensure_ascii=False) + "\n")
                     count += 1

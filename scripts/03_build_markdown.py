@@ -170,6 +170,14 @@ def main():
         with open(config.FILE_AUDIO_INDEX, "r", encoding="utf-8") as f:
             audio_index = json.load(f)
 
+    audio_timestamps = {}
+    if config.FILE_AUDIO_TIMESTAMPS.exists():
+        try:
+            with open(config.FILE_AUDIO_TIMESTAMPS, "r", encoding="utf-8") as f:
+                audio_timestamps = json.load(f)
+        except Exception:
+            audio_timestamps = {}
+
     if not config.FILE_BIBLE_XML.exists():
         print(f"Chyba: Súbor {config.FILE_BIBLE_XML} neexistuje! Spustite najprv 'task download'.")
         return
@@ -203,12 +211,15 @@ def main():
                         f.write(f"*🎧 Audio nahrávka: `{audio_index[audio_key]}`*\n")
                     f.write("\n")
 
+                    chap_timestamps = audio_timestamps.get(audio_key, {}).get("verses", {})
+
                     for verse in chapter["verses"]:
                         verse_num = verse["verse_num"]
                         verse_text = verse["text"]
 
                         refs = cross_refs.get((osis_code, str(chap_num), str(verse_num)), [])[:4]
                         matched_geo = find_places_in_text(verse_text, places_db)
+                        verse_ts = chap_timestamps.get(str(verse_num))
 
                         extra = []
                         if refs:
@@ -218,6 +229,8 @@ def main():
                                 [f"📍 {g['name']} ({g['maps']})" for g in matched_geo[:2]]
                             )
                             extra.append(geo_str)
+                        if verse_ts and "start_formatted" in verse_ts:
+                            extra.append(f"⏱️ {verse_ts['start_formatted']} - {verse_ts['end_formatted']}")
 
                         info_tag = f" *({ ' | '.join(extra) })*" if extra else ""
                         f.write(f"**{verse_num}.** {verse_text}{info_tag}\n")

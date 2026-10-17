@@ -34,7 +34,11 @@ def main():
         chapter INTEGER,
         verse INTEGER,
         text TEXT,
-        audio_file TEXT
+        audio_file TEXT,
+        audio_start TEXT,
+        audio_end TEXT,
+        audio_start_sec REAL,
+        audio_end_sec REAL
     )
     """)
     cur.execute("CREATE INDEX idx_book_chap_verse ON verses(osis_code, chapter, verse);")
@@ -61,6 +65,14 @@ def main():
         with open(config.FILE_AUDIO_INDEX, "r", encoding="utf-8") as f:
             audio_index = json.load(f)
 
+    audio_timestamps = {}
+    if config.FILE_AUDIO_TIMESTAMPS.exists():
+        try:
+            with open(config.FILE_AUDIO_TIMESTAMPS, "r", encoding="utf-8") as f:
+                audio_timestamps = json.load(f)
+        except Exception:
+            audio_timestamps = {}
+
     if not config.FILE_BIBLE_XML.exists():
         print(f"Chyba: Súbor {config.FILE_BIBLE_XML} neexistuje! Spustite najprv 'task download'.")
         return
@@ -78,16 +90,24 @@ def main():
 
         for chapter in book["chapters"]:
             chap_num = chapter["chapter_num"]
-            audio_path = audio_index.get(f"{osis_code}_{chap_num}")
+            audio_key = f"{osis_code}_{chap_num}"
+            audio_path = audio_index.get(audio_key)
+            chap_timestamps = audio_timestamps.get(audio_key, {}).get("verses", {})
 
             for verse in chapter["verses"]:
                 verse_num = verse["verse_num"]
                 verse_text = verse["text"]
 
+                v_ts = chap_timestamps.get(str(verse_num))
+                a_start = v_ts.get("start_formatted") if v_ts else None
+                a_end = v_ts.get("end_formatted") if v_ts else None
+                a_start_sec = v_ts.get("start") if v_ts else None
+                a_end_sec = v_ts.get("end") if v_ts else None
+
                 cur.execute("""
-                INSERT INTO verses (book, code, osis_code, chapter, verse, text, audio_file)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (book_name, sk_code, osis_code, chap_num, verse_num, verse_text, audio_path))
+                INSERT INTO verses (book, code, osis_code, chapter, verse, text, audio_file, audio_start, audio_end, audio_start_sec, audio_end_sec)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (book_name, sk_code, osis_code, chap_num, verse_num, verse_text, audio_path, a_start, a_end, a_start_sec, a_end_sec))
                 count += 1
 
     conn.commit()

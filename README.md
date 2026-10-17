@@ -1,3 +1,4 @@
+
 # Bible AI Pipeline (Slovenská Biblia pre AI modely)
 
 Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), krížových odkazov (OpenBible.info cross-references), geografických GPS dát a lokálnych MP3 audio nahrávok.
@@ -11,7 +12,9 @@ Výsledné dáta sú pripravené pre:
 
 ## 📁 Štruktúra projektu
 
+
 ```
+
 bible-ai/
 ├── Taskfile.yml                  # Automatizácia úloh (taskfile.dev)
 ├── config.py                     # Cesty, URL adresy a mapovania OSIS kódov
@@ -22,18 +25,20 @@ bible-ai/
 │   │   ├── cross_references.csv  # Krížové odkazy s váhami (OpenBible)
 │   │   ├── modern.jsonl          # GPS geokódovanie biblických miest
 │   │   └── audio_index.json      # Vygenerovaný index MP3 kapitol
-│   └── audio/                    # Priečinky s MP3 nahrávkami (CD 1 až 8 + Dt)
+│   └── audio/                    # Priečinki s MP3 nahrávkami (CD 1 až 8 + Dt)
 ├── scripts/
 │   ├── 01_download.py            # Stiahnutie XML Biblie, cross-references a geodát
 │   ├── 02_parse_audio.py         # Preskenovanie MP3 súborov a namapovanie na knihy/kapitoly
 │   ├── 03_build_markdown.py      # Generovanie Markdownu s odkazmi a mapami pre NotebookLM
 │   ├── 04_build_sqlite.py        # Generovanie SQLite databázy s FTS5 indexom
 │   ├── 05_build_jsonl.py         # Generovanie JSONL súboru pre vektorové vkladanie (embeddings)
-│   └── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
+│   ├── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
+│   └── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov do slovenčiny
 └── outputs/
-    ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
-    ├── sqlite/                   # Databáza biblia.sqlite
-    └── jsonl/                    # Dataset biblia.jsonl
+├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
+├── sqlite/                   # Databáza biblia.sqlite
+└── jsonl/                    # Dataset biblia.jsonl
+
 ```
 
 ---
@@ -47,14 +52,18 @@ Celý proces riadi nástroj [Task](https://taskfile.dev/):
 task
 # alebo
 task --list
+
 ```
 
 ### Spustenie celej pipeline naraz
+
 ```bash
 task build
+
 ```
 
 Príkaz automaticky:
+
 1. Skontroluje a stiahne chýbajúce externé zdroje (`data/raw/`).
 2. Preskenuje a indexuje lokálne MP3 súbory (`data/audio/`).
 3. Vygeneruje Markdown súbory v `outputs/markdown/`.
@@ -63,16 +72,31 @@ Príkaz automaticky:
 
 ---
 
+## Odporúčaný model pre LM Studio - preklad apokryfov
+
+* **Názov:** `gemma-2-9b-it` (Gemma 2 9B Instruct)
+* **Kontextové okno:** `2048`
+* **GPU Offload:** `100 % (MAX)`
+* **Temperature:** `0.1`
+
+### Systémové prompty
+
+* **Pass 1 (Preklad):** `Si prekladateľ starovekých a biblických textov z angličtiny/latinčiny do slovenčiny. Prelož verš presne. Vráť IBA preložený slovenský text.`
+* **Pass 2 (Korektúra):** `Si profesionálny slovenský teologický redaktor a jazykový korektor.`
+
+---
+
 ## 🛠️ Jednotlivé úlohy
 
 | Úloha | Príkaz | Popis |
-|---|---|---|
+| --- | --- | --- |
 | **Stiahnutie dát** | `task download` | Stiahne XML Biblie, zip krížových odkazov a súbor `modern.jsonl`. |
 | **Indexovanie audia** | `task parse-audio` | Preskenuje MP3 súbory v `data/audio/` a vytvorí `audio_index.json`. |
 | **Časové značky (Whisper)** | `task align-audio` | Vygeneruje časové značky veršov z MP3 cez faster-whisper. |
 | **Generovanie MD** | `task markdown` | Vytvorí Markdown pre NotebookLM s odkazmi na verše, audio a Google Mapy. |
 | **Generovanie SQLite** | `task sqlite` | Vytvorí `biblia.sqlite` s tabuľkou veršov a full-textovým vyhľadávaním (FTS5). |
 | **Generovanie JSONL** | `task jsonl` | Vytvorí `biblia.jsonl` pre vektorové vyhľadávanie a trénovanie. |
+| **Preklad apokryfov** | `python scripts/07_translate_apocrypha.py --book 1En -t 2` | Preloží nekanonickú knihu z OCP (napr. 1En, Jubi, 4Ezra) cez LM Studio do čistej slovenčiny. |
 | **Kompletný proces (All)** | `task all` | Spustí end-to-end proces od nuly (clean -> download -> parse-audio -> align-audio -> build). |
 | **Kompletné prečistenie** | `task clean` | Vymaže stiahnuté dáta v `data/raw/` aj výstupy v `outputs/` (audio v `data/audio/` a `audio_timestamps.json` ponechá). |
 | **Prečistenie výstupov** | `task clean-outputs` | Vymaže iba priečinky v `outputs/` (ponechá surové XML, referencie, GPS, audio aj časové značky). |
@@ -82,11 +106,14 @@ Príkaz automaticky:
 ## 🔍 Ako používať výstupy
 
 ### 1. Google NotebookLM
-- Nahrajte vygenerované súbory z `outputs/markdown/` (cca 7 súborov, limit je 50 zdrojov).
-- AI má v jednom textovom bloku samotný verš, krížové referencie *(porov. ...)*, lokáciu s GPS odkazom na Google Maps a cestu k lokálnej audio nahrávke.
+
+* Nahrajte vygenerované súbory z `outputs/markdown/` (cca 7 súborov, limit je 50 zdrojov).
+* AI má v jednom textovom bloku samotný verš, krížové referencie *(porov. ...)*, lokáciu s GPS odkazom na Google Maps a cestu k lokálnej audio nahrávke.
 
 ### 2. Antigravity / SQLite
+
 Databáza obsahuje tabuľku `verses` a virtuálnu tabuľku `verses_fts`:
+
 ```sql
 -- Rýchle vyhľadanie podľa knihy, kapitoly a verša
 SELECT * FROM verses WHERE osis_code = 'Matt' AND chapter = 2;
@@ -96,10 +123,13 @@ SELECT v.book, v.chapter, v.verse, v.text
 FROM verses_fts f
 JOIN verses v ON f.rowid = v.id
 WHERE verses_fts MATCH 'Betlehem';
+
 ```
 
 ### 3. Vektorové databázy (ChromaDB / LangChain)
+
 Každý riadok v `outputs/jsonl/biblia.jsonl` predstavuje jeden verš s metadátami:
+
 ```json
 {
   "id": "Matt_2_1",
@@ -111,4 +141,5 @@ Každý riadok v `outputs/jsonl/biblia.jsonl` predstavuje jeden verš s metadát
   "text": "Keď sa Ježiš narodil v judskom Betleheme za čias kráľa Herodesa...",
   "audio_file": "data/audio/CD 7 Evanjelia a Skutky/mp3/40_evanjelium_podla_matusa/40_mt_02.mp3"
 }
+
 ```

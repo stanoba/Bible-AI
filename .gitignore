@@ -1,0 +1,24 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+env/
+
+# Surové a veľké vstupné dáta
+data/raw/*
+data/audio/*
+!data/raw/.gitkeep
+!data/audio/.gitkeep
+!data/audio/info.txt
+
+# Vygenerované výstupy
+outputs/*
+!outputs/.gitkeep
+
+# IDE a OS súbory
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

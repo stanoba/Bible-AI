@@ -1,0 +1,73 @@
+version: '3'
+
+env:
+  PYTHONIOENCODING: utf-8
+
+# Globálne premenné
+vars:
+  PYTHON: python
+  SCRIPTS_DIR: scripts
+  DATA_RAW_DIR: data/raw
+  DATA_AUDIO_DIR: data/audio
+  OUTPUTS_DIR: outputs
+
+tasks:
+  default:
+    desc: "Zobrazí zoznam dostupných príkazov"
+    cmds:
+      - task --list
+
+  init:
+    desc: "Vytvorí potrebnú adresárovú štruktúru pre projekt"
+    cmds:
+      - "{{.PYTHON}} -c \"from pathlib import Path; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.DATA_RAW_DIR}}', '{{.DATA_AUDIO_DIR}}', '{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl', '{{.SCRIPTS_DIR}}']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.DATA_RAW_DIR}}', '{{.DATA_AUDIO_DIR}}', '{{.OUTPUTS_DIR}}']]\""
+      - echo "Adresárová štruktúra bola úspešne vytvorená."
+
+  download:
+    desc: "Stiahne surové dáta z internetu (XML Biblia, Cross-refs, GPS)"
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/01_download.py"
+
+  parse-audio:
+    desc: "Preskenuje MP3 audio súbory a vytvorí index nahrávok"
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/02_parse_audio.py"
+
+  markdown:
+    desc: "Vygeneruje Markdown súbory pre NotebookLM"
+    deps: [download, parse-audio]
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/03_build_markdown.py"
+
+  sqlite:
+    desc: "Vygeneruje SQLite databázu pre Antigravity / SQL"
+    deps: [download, parse-audio]
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/04_build_sqlite.py"
+
+  jsonl:
+    desc: "Vygeneruje JSONL súbor pre Vektorové databázy (ChromaDB)"
+    deps: [download, parse-audio]
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/05_build_jsonl.py"
+
+  build:
+    desc: "Spustí celú pipeline a vygeneruje všetky výstupy naraz"
+    deps: [download, parse-audio]
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/03_build_markdown.py"
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/04_build_sqlite.py"
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/05_build_jsonl.py"
+      - echo "Všetky výstupy boli úspešne vygenerované v '{{.OUTPUTS_DIR}}'."
+
+  clean:
+    desc: "Vymaže stiahnuté raw vstupy aj vygenerované výstupy (audio v data/audio zachová)"
+    cmds:
+      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [item.is_dir() and shutil.rmtree(item, ignore_errors=True) or item.unlink(missing_ok=True) for item in Path('{{.DATA_RAW_DIR}}').iterdir() if item.name != '.gitkeep']\""
+      - echo "Stiahnuté raw vstupy a vygenerované výstupy boli úspešne vymazané."
+
+  clean-outputs:
+    desc: "Vymaže iba vygenerované výstupy v outputs/ (ponechá stiahnuté raw dáta aj audio)"
+    cmds:
+      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]\""
+      - echo "Vygenerované výstupy v outputs/ boli úspešne vymazané."

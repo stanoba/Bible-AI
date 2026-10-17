@@ -19,7 +19,7 @@ def parse_audio_files():
         print(f"Varovanie: Adresár {config.DATA_AUDIO_DIR} neexistuje!")
         return {}
 
-    audio_files = list(config.DATA_AUDIO_DIR.rglob("*.mp3"))
+    audio_files = sorted(list(config.DATA_AUDIO_DIR.rglob("*.mp3")))
     print(f"Nájdených {len(audio_files)} MP3 súborov.")
 
     audio_index = {}

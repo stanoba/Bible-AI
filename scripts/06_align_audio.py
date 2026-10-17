@@ -5,19 +5,34 @@ Použitie:
   python scripts/06_align_audio.py --book Gen --chapter 1
   python scripts/06_align_audio.py --book Matt --chapter 1 --model small
   python scripts/06_align_audio.py --all --limit 5
+  python scripts/06_align_audio.py --all --force
 """
 
 import argparse
 import difflib
 import json
+import os
 import re
+import site
 import sys
 import xml.etree.ElementTree as ET
-import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # Vypnutie varovania o symlinkoch na Windows
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
+# Automatické pridanie CUDA DLL z pip balíčkov do PATH na Windowse (nvidia-cublas-cu12, nvidia-cudnn-cu12)
+if os.name == "nt":
+    for site_pkg in site.getsitepackages():
+        cublas_path = os.path.join(site_pkg, "nvidia", "cublas", "bin")
+        cudnn_path = os.path.join(site_pkg, "nvidia", "cudnn", "bin")
+        if os.path.exists(cublas_path):
+            os.add_dll_directory(cublas_path)
+            os.environ["PATH"] += os.pathsep + cublas_path
+        if os.path.exists(cudnn_path):
+            os.add_dll_directory(cudnn_path)
+            os.environ["PATH"] += os.pathsep + cudnn_path
 
 # Kompatibilita pre novšie verzie PyAV (av>=14), kde bol odstránený parameter metadata_errors
 try:
@@ -102,7 +117,6 @@ def align_transcription_to_verses(transcribed_words, expected_verses):
         v_words = [normalize_word(w) for w in v_text.split() if normalize_word(w)]
 
         if not v_words or t_idx >= total_t_words:
-            # Fallback ak už nie sú slová
             last_end = clean_transcribed[-1]["end"] if clean_transcribed else 0.0
             aligned_results[str(v_num)] = {
                 "verse_num": v_num,
@@ -115,14 +129,12 @@ def align_transcription_to_verses(transcribed_words, expected_verses):
             }
             continue
 
-        # Nájdeme najlepšiu začiatočnú pozíciu pre daný verš v okne od t_idx
         anchor_len = min(4, len(v_words))
         anchor_tokens = v_words[:anchor_len]
 
         best_pos = t_idx
         best_score = 0.0
 
-        # Prehľadávame dopredu v okne nasledujúcich slov
         search_window = min(total_t_words, t_idx + 80)
         for cand_pos in range(t_idx, search_window):
             window_tokens = [clean_transcribed[k]["word"] for k in range(cand_pos, min(total_t_words, cand_pos + anchor_len))]
@@ -133,15 +145,12 @@ def align_transcription_to_verses(transcribed_words, expected_verses):
                 if ratio > 0.8:
                     break
 
-        # Nastavíme štart na nájdenú pozíciu
         verse_start_idx = best_pos if best_score >= 0.4 else t_idx
         verse_start_time = clean_transcribed[verse_start_idx]["start"]
 
-        # Odhadneme koniec verša podľa počtu slov
         est_words = len(v_words)
         verse_end_idx = min(total_t_words - 1, verse_start_idx + est_words - 1)
 
-        # Spresnenie konca pomocou posledných slov verša
         tail_len = min(4, len(v_words))
         tail_tokens = v_words[-tail_len:]
         tail_best_pos = verse_end_idx
@@ -176,7 +185,6 @@ def align_transcription_to_verses(transcribed_words, expected_verses):
             "confidence": round((best_score + tail_best_score) / 2 if tail_best_score else best_score, 2)
         }
 
-        # Posunieme index pre ďalší verš
         t_idx = max(t_idx + 1, verse_end_idx + 1)
 
     return aligned_results
@@ -192,13 +200,14 @@ def process_chapter(model, key: str, audio_rel_path: str, chapter_data: dict):
     print(f"\n>> Spracovávam: {chapter_data['book_name']} {chapter_data['chapter_num']} ({key})")
     print(f"   Audio: {audio_rel_path}")
 
-    # Spustenie Whisperu s word timestamps
+    # Spustenie Whisperu s word timestamps a beam_size=1 pre 2x-3x rýchlejší prepis
     segments, info = model.transcribe(
         str(audio_full_path),
         language="sk",
         task="transcribe",
         word_timestamps=True,
-        vad_filter=True
+        vad_filter=True,
+        beam_size=1
     )
 
     all_words = []
@@ -216,7 +225,6 @@ def process_chapter(model, key: str, audio_rel_path: str, chapter_data: dict):
 
     print(f"   Prepísaných {len(all_words)} slov, celková dĺžka: {format_timestamp(info.duration)}")
 
-    # Zarovnanie slov s očakávanými veršami
     expected_verses = chapter_data["verses"]
     aligned_verses = align_transcription_to_verses(all_words, expected_verses)
 
@@ -238,13 +246,14 @@ def main():
     parser.add_argument("--chapter", "-c", type=int, help="Číslo kapitoly")
     parser.add_argument("--model", "-m", default="base", choices=["tiny", "base", "small", "medium", "large-v3"], help="Veľkosť Whisper modelu (predvolené: base)")
     parser.add_argument("--device", "-d", default="auto", choices=["auto", "cuda", "cpu"], help="Zariadenie (auto, cuda, cpu)")
+    parser.add_argument("--workers", "-w", type=int, default=None, help="Počet paralelných vlákien (predvolené: 4 pre GPU, 2 pre CPU)")
     parser.add_argument("--all", action="store_true", help="Spracovať všetky dostupné kapitoly")
     parser.add_argument("--limit", "-l", type=int, default=None, help="Limit na počet spracovaných kapitol")
+    parser.add_argument("--force", "-f", action="store_true", help="Vynútiť spracovanie aj pre už existujúce kapitoly v JSON")
     parser.add_argument("--output", "-o", default=str(config.FILE_AUDIO_TIMESTAMPS), help="Cesta k výslednému JSON súboru")
 
     args = parser.parse_args()
 
-    # Kontrola dostupnosti faster_whisper
     try:
         from faster_whisper import WhisperModel
     except ImportError:
@@ -255,7 +264,6 @@ def main():
         print("=" * 70 + "\n")
         sys.exit(1)
 
-    # Načítanie audio indexu a textov Biblie
     if not config.FILE_AUDIO_INDEX.exists():
         print("Audio index neexistuje! Spúšťam '02_parse_audio.py'...")
         import subprocess
@@ -266,12 +274,24 @@ def main():
 
     verses_by_chapter = load_bible_verses()
 
-    # Filtrovanie kapitol na spracovanie
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Načítanie doterajších výstupov pre možnosť nadviazania na prerušený proces
+    existing_timestamps = {}
+    if output_path.exists():
+        try:
+            with open(output_path, "r", encoding="utf-8") as f:
+                existing_timestamps = json.load(f)
+        except Exception:
+            existing_timestamps = {}
+
     targets = []
     target_osis = None
     if args.book:
         target_osis = config.SK_NAME_TO_OSIS.get(args.book, args.book)
 
+    skipped_count = 0
     for key, audio_path in audio_index.items():
         osis_code, chap_num_str = key.split("_")
         chap_num = int(chap_num_str)
@@ -281,52 +301,80 @@ def main():
         if args.chapter and chap_num != args.chapter:
             continue
         if key in verses_by_chapter:
+            # Ak kapitola už v JSON existuje a nezadali sme --force, preskočíme ju
+            if key in existing_timestamps and not args.force:
+                skipped_count += 1
+                continue
             targets.append((key, audio_path, verses_by_chapter[key]))
 
+    if skipped_count > 0:
+        print(f"[INFO] Preskočených {skipped_count} už spracovaných kapitol.")
+
     if not targets:
-        print(f"Nenašli sa žiadne kapitoly pre zadané parametre (book={args.book}, chapter={args.chapter}).")
+        print("Všetky požadované kapitoly sú už spracované! (Pre opätovné spracovanie použite parameter --force)")
         return
 
     if args.limit:
         targets = targets[:args.limit]
 
-    print(f"Spúšťam extrakciu časových značiek pre {len(targets)} kapitol pomocou faster-whisper (model: {args.model})...")
+    requested_device = args.device
+    if requested_device == "auto":
+        requested_device = "cuda"
 
-    # Inicializácia modelu
-    compute_type = "float16" if args.device == "cuda" else "int8"
-    model = WhisperModel(args.model, device=args.device, compute_type=compute_type)
+    if args.workers:
+        workers = args.workers
+    else:
+        workers = 4 if requested_device == "cuda" else 2
 
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Načítanie modelu s fallbackom na CPU
+    try:
+        compute_type = "float16" if requested_device == "cuda" else "int8"
+        print(f"Pripravujem Whisper model '{args.model}' na zariadení: {requested_device} ({workers} workerov)...")
+        model = WhisperModel(
+            args.model,
+            device=requested_device,
+            compute_type=compute_type,
+            num_workers=workers
+        )
+    except Exception as e:
+        if requested_device == "cuda":
+            print(f"\n[INFO] Akcelerácia CUDA zlyhala alebo chýbajú knižnice ({e}). Prepínam na CPU...")
+            workers = args.workers if args.workers else 2
+            model = WhisperModel(
+                args.model,
+                device="cpu",
+                compute_type="int8",
+                num_workers=workers
+            )
+        else:
+            raise e
 
-    # Načítame doterajšie značky (aby sme neprepísali už skôr spracované kapitoly)
-    existing_timestamps = {}
-    if output_path.exists():
-        try:
-            with open(output_path, "r", encoding="utf-8") as f:
-                existing_timestamps = json.load(f)
-        except Exception:
-            existing_timestamps = {}
+    def worker_task(target):
+        key, audio_path, chap_data = target
+        return key, process_chapter(model, key, audio_path, chap_data)
+
+    print(f"Spúšťam extrakciu časových značiek pre {len(targets)} kapitol v {workers} paralelných vláknach...")
 
     processed_count = 0
-    for key, audio_path, chap_data in targets:
-        result = process_chapter(model, key, audio_path, chap_data)
-        if result:
-            existing_timestamps[key] = result
-            processed_count += 1
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(worker_task, t) for t in targets]
+        for future in futures:
+            key, result = future.result()
+            if result:
+                existing_timestamps[key] = result
+                processed_count += 1
 
-            # Ukážka prvých troch veršov na konzole
-            print(f"   [OK] Zarovnaných {len(result['verses'])} veršov:")
-            for v_num in list(result["verses"].keys())[:3]:
-                v_info = result["verses"][v_num]
-                print(f"        Verš {v_num:>2}: {v_info['start_formatted']} -> {v_info['end_formatted']} ({v_info['text'][:40]}...)")
+                print(f"   [OK] Zarovnaných {len(result['verses'])} veršov pre {key}:")
+                for v_num in list(result["verses"].keys())[:2]:
+                    v_info = result["verses"][v_num]
+                    print(f"        Verš {v_num:>2}: {v_info['start_formatted']} -> {v_info['end_formatted']} ({v_info['text'][:40]}...)")
 
-            # Ukladanie priebežne po každej kapitole
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(existing_timestamps, f, ensure_ascii=False, indent=2)
+                # Priebežné ukladanie po každej kapitole
+                with open(output_path, "w", encoding="utf-8") as f:
+                    json.dump(existing_timestamps, f, ensure_ascii=False, indent=2)
 
     print("\n" + "=" * 70)
-    print(f"Hotovo! Spracovaných {processed_count} kapitol.")
+    print(f"Hotovo! Novospracovaných {processed_count} kapitol.")
     print(f"Časové značky boli uložené do: {output_path}")
     print("=" * 70 + "\n")
 

@@ -185,34 +185,28 @@ def call_lmstudio_api(messages: list, temperature: float = 0.1, max_tokens: int 
 
 
 def translate_verse_twopass(text_en: str) -> str:
-    """Dvojprechodový preklad: 1. Hrubý preklad, 2. Teologická a gramatická korektúra."""
+    """Dvojprechodový preklad: 1. Hrubý preklad, 2. Prirodzená redakčná korektúra."""
 
     # --- PASS 1: HRUBÝ PREKLAD ---
-    sys_pass1 = (
-        "Si prekladateľ starovekých a biblických textov z angličtiny/latinčiny do slovenčiny. "
-        "Prelož verš presne. Vráť IBA preložený slovenský text."
-    )
     msg1 = [
-        {"role": "system", "content": sys_pass1},
-        {"role": "user", "content": f"Prelož do slovenčiny:\n{text_en}"},
+        {"role": "system", "content": "Si prekladateľ biblických textov z angličtiny do slovenčiny. Prelož verš presne a doslovne. Vráť IBA preklad."},
+        {"role": "user", "content": text_en},
     ]
-    raw_sk = call_lmstudio_api(msg1, temperature=0.2, max_tokens=200)
+    raw_sk = call_lmstudio_api(msg1, temperature=0.1, max_tokens=200)
 
-# --- PASS 2: GRAMATICKÁ A TEOLOGICKÁ KOREKTÚRA ---
-    sys_pass2 = "Si profesionálny slovenský teologický redaktor a jazykový korektor."
+    # --- PASS 2: BILINGVÁLNA KOREKTÚRA ---
     rules_pass2 = (
-        "Oprav a vyčisti nasledujúci slovenský preklad apokryfného verša.\n\n"
-        "STRIKTNÉ PRAVIDLÁ KOREKTÚRY:\n"
-        "1. Odstráň české slová a čechizmy (napr. 'pojďme' -> 'poďme', 'třásenie' -> 'chvenie', 'zrieť' -> 'hľadieť', 'budiž' -> 'nech je', 'moudrosť' -> 'múdrosť').\n"
-        "2. Oprav chybné preklady (napr. 'dew' prelož ako 'rosa' [NIKDY NIE rosnička], 'all flesh' ako 'všetci ľudia' alebo 'všetko tvorstvo' [NIKDY NIE pokožka], 'curse' ako 'kliatba').\n"
-        "3. Oprav nespisovné tvary, gramatiku a pádovanie (napr. 'Hermonovi hory' -> 'Hermonovej hory', 'zaklínačky' -> 'zaklínadlá', 'nepotrval' -> 'nevytrval si').\n"
-        "4. Odstráň vymyslené slovesá a novotvary (napr. 'pochotili', 'zosvorený', 'hriechuť', 'trémať'), doplň chýbajúcu diakritiku a odstráň zdvojené zámená (napr. 'vybrať si si').\n"
-        "5. Vráť IBA opravený finálny text verša bez akýchkoľvek poznámok, vysvetlení alebo úvodzoviek.\n\n"
-        f"Slovenský text na korektúru:\n{raw_sk}"
+        "Si slovenský teologický redaktor. Uprav a usmerni slovenský preklad tak, aby presne zodpovedal anglickému originálu a znel plynulo v spisovnej slovenčine.\n\n"
+        "DÔLEŽITÉ PRAVIDLÁ:\n"
+        "1. PRESNOSŤ VÝZNAMU: Prekladaj slovesá presne podľa anglického originálu. NEPOUŽÍVAJ dookola tie isté frázy (napr. 'zatúžili po', 'zviazať', 'kliatba'), ak nezodpovedajú anglickému slovesu vo vete!\n"
+        "2. KONTROLA TEXTU: Nepridávaj do verša ŽIADNE vlastné vety, zhrnutia, mená anjelov ani komentáre, ktoré nie sú v origináli.\n"
+        "3. GRAMATIKA A ČECHIZMY: Vždy používa 'kliatba' (NIE kletba), 'poďme' (NIE pojďme), 'Gabriel' (mužský rod). Oprav pádovanie, preklepy a zliate slová.\n"
+        "4. Vráť LEN opravený finálny slovenský verš bez úvodzoviek.\n\n"
+        f"Anglický originál:\n{text_en}\n\n"
+        f"Slovenský preklad na úpravu:\n{raw_sk}"
     )
-
     msg2 = [
-        {"role": "system", "content": sys_pass2},
+        {"role": "system", "content": "Si profesionálny slovenský jazykový a teologický redaktor."},
         {"role": "user", "content": rules_pass2},
     ]
     clean_sk = call_lmstudio_api(msg2, temperature=0.1, max_tokens=200)

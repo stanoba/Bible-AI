@@ -1,3 +1,4 @@
+import argparse
 import csv
 import json
 import re
@@ -23,12 +24,10 @@ def load_cross_references():
         return cross_refs
 
     with open(config.FILE_CROSS_REFS, "r", encoding="utf-8") as f:
-        # OpenBible používajú ako oddeľovač tabulátor (\t)
         reader = csv.reader(f, delimiter="\t")
         next(reader, None)  # Preskočíme hlavičku
 
         for row in reader:
-            # Kontrola: riadok má aspoň 3 stĺpce a tretí stĺpec (počet hlasov) je číslo >= 10
             if len(row) >= 3 and row[2].isdigit() and int(row[2]) >= 10:
                 parts = row[0].split(".")
                 if len(parts) == 3:
@@ -43,7 +42,6 @@ def load_cross_references():
     return cross_refs
 
 
-# Zoznam najčastejších slovenských biblických názvov miest a ich preklad na anglický kľúč v modern.jsonl
 SLOVAK_PLACE_ALIASES = {
     "jeruzalem": "jerusalem",
     "jeruzaleme": "jerusalem",
@@ -124,12 +122,9 @@ def load_places():
             if not lonlat:
                 continue
 
-            # OpenBible lonlat je vo formáte "longitude,latitude"
             coords = lonlat.split(",")
             if len(coords) == 2:
                 lon, lat = coords[0].strip(), coords[1].strip()
-
-                # Získame všetky známe názvy danej lokality
                 names = [n.get("name") for n in data.get("names", []) if n.get("name")]
                 if not names and data.get("friendly_id"):
                     names = [data.get("friendly_id")]
@@ -147,7 +142,6 @@ def load_places():
 def find_places_in_text(text: str, places_db: dict):
     matched = []
     seen = set()
-    # Vyčistíme slová z textu
     words = re.findall(r'\b[a-zA-ZáäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ]+\b', text)
     for w in words:
         w_lower = w.lower()
@@ -157,9 +151,62 @@ def find_places_in_text(text: str, places_db: dict):
             seen.add(target_name)
     return matched
 
+def parse_universal_bible_xml(root):
+    """
+    Univerzálny parser:
+      - Pre apokryfy s atribútom 'name' (napr. 1En_sk.xml) použije vlastné názvy.
+      - Pre štandardnú SEB Bibliu použije originálnu funkciu config.parse_bible_elements.
+    """
+    # 1. Skontrolujeme, či prvá kniha v XML má priamo zadaný atribút 'name' alebo 'n'
+    first_book = root.find(".//book")
+    if first_book is None:
+        first_book = root.find(".//b")
+    
+    if first_book is not None and ("name" in first_book.attrib or "n" in first_book.attrib):
+        books_data = []
+        for testament in root.findall(".//testament") or [root]:
+            for book in testament.findall(".//book") + testament.findall(".//b"):
+                book_name = book.attrib.get("name") or book.attrib.get("n", "Neznáma kniha")
+                osis_code = book.attrib.get("code") or book.attrib.get("osis", "APOC")
+                
+                chapters = []
+                for chapter in book.findall("chapter") + book.findall("c"):
+                    chap_num = int(chapter.attrib.get("number") or chapter.attrib.get("n", 1))
+                    
+                    verses = []
+                    for verse in chapter.findall("verse") + chapter.findall("v"):
+                        v_num = int(verse.attrib.get("number") or verse.attrib.get("n", 1))
+                        v_text = verse.text or ""
+                        verses.append({"verse_num": v_num, "text": v_text})
+                    
+                    chapters.append({"chapter_num": chap_num, "verses": verses})
+                
+                if chapters:
+                    books_data.append({
+                        "book_name": book_name,
+                        "osis_code": osis_code,
+                        "chapters": chapters
+                    })
+        return books_data
+
+    # 2. Ak ide o kanonickú SEB Bibliu (kde <book number="1"> nemá atribút name),
+    # použijeme 100% pôvodnú funkciu z config.py
+    return config.parse_bible_elements(root)
+
 
 def main():
-    print("--- 3. Generovanie Markdown pre NotebookLM ---")
+    parser = argparse.ArgumentParser(description="Generovanie Markdown súborov z Biblie alebo apokryfov.")
+    parser.add_argument(
+        "--xml",
+        type=str,
+        default=str(config.FILE_BIBLE_XML),
+        help="Cesta k XML súboru (predvolené: štandardná Biblia)"
+    )
+    args = parser.parse_args()
+
+    xml_path = Path(args.xml)
+    print(f"--- 3. Generovanie Markdown (vstup: {xml_path.name}) ---")
+    
     config.MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 
     cross_refs = load_cross_references()
@@ -178,22 +225,28 @@ def main():
         except Exception:
             audio_timestamps = {}
 
-    if not config.FILE_BIBLE_XML.exists():
-        print(f"Chyba: Súbor {config.FILE_BIBLE_XML} neexistuje! Spustite najprv 'task download'.")
+    if not xml_path.exists():
+        print(f"Chyba: Súbor {xml_path} neexistuje!")
         return
 
-    tree = ET.parse(config.FILE_BIBLE_XML)
+    tree = ET.parse(xml_path)
     root = tree.getroot()
 
-    books_data = config.parse_bible_elements(root)
-    print(f"Spracovávam {len(books_data)} kníh Biblie...")
+    books_data = parse_universal_bible_xml(root)
+    if not books_data:
+        print("Chyba: Nepodarilo sa parsovať žiadne knihy zo zadaného XML.")
+        return
 
-    CHUNK_SIZE = 10  # Cca 10 kníh na súbor (pre dodržanie limitu max 50 zdrojov v NotebookLM)
+    print(f"Spracovávam {len(books_data)} kníh...")
+
+    CHUNK_SIZE = 10  # Cca 10 kníh na súbor
 
     for chunk_idx in range(0, len(books_data), CHUNK_SIZE):
         chunk_books = books_data[chunk_idx : chunk_idx + CHUNK_SIZE]
         part_num = chunk_idx // CHUNK_SIZE + 1
-        filename = f"Biblia_Cast_{part_num:02d}.md"
+        
+        prefix = xml_path.stem.replace("_sk", "")
+        filename = f"{prefix}_Cast_{part_num:02d}.md" if prefix != "SlovakianSEBBible" else f"Biblia_Cast_{part_num:02d}.md"
         filepath = config.MARKDOWN_DIR / filename
 
         with open(filepath, "w", encoding="utf-8") as f:

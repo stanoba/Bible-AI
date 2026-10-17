@@ -28,6 +28,7 @@ import sys
 import threading
 import urllib.request
 import xml.etree.ElementTree as ET
+from xml.dom import minidom
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -364,28 +365,43 @@ def main():
                 translated_count += 1
                 print(f"  [{translated_count}/{total_to_translate}] [OK] {book_code} {chap_num:>3}:{v_num:<3}")
 
-    # Rekonštrukcia finálneho XML súboru v správnom poradí kapitol a veršov
-    print("\nVytváram výsledný XML súbor...")
-    xml_root_sk = ET.Element("bible")
-    book_elem = ET.SubElement(xml_root_sk, "b", n=book_info["name_sk"])
+# Rekonštrukcia finálneho XML súboru v SEB štruktúre
+    print("\nVytváram výsledný XML súbor v SEB formáte...")
+    
+    xml_root_sk = ET.Element("bible", attrib={
+        "translation": f"Online Critical Pseudepigrapha ({book_info['name_sk']})",
+        "status": "Lokálny dvojprechodový preklad cez LM Studio.",
+        "link": book_info.get("url", "")
+    })
+    
+    # Zaradenie pod Starý zákon (alebo príslušný testament)
+    testament_elem = ET.SubElement(xml_root_sk, "testament", name="Old")
+    
+    # Definícia knihy s atribútmi name a code
+    book_elem = ET.SubElement(testament_elem, "book", name=book_info["name_sk"], code=book_code)
 
     for chap_num, verses in chapters_data.items():
-        c_sk_elem = ET.SubElement(book_elem, "c", n=str(chap_num))
+        chapter_elem = ET.SubElement(book_elem, "chapter", number=str(chap_num))
         for v_num, _ in verses:
             v_key = f"{chap_num}_{v_num}"
             v_sk_text = checkpoint.get(v_key, "")
-            v_sk_elem = ET.SubElement(c_sk_elem, "v", n=str(v_num))
-            v_sk_elem.text = v_sk_text
+            
+            verse_elem = ET.SubElement(chapter_elem, "verse", number=str(v_num))
+            verse_elem.text = v_sk_text
 
     output_sk_xml.parent.mkdir(parents=True, exist_ok=True)
-    out_tree = ET.ElementTree(xml_root_sk)
-    out_tree.write(output_sk_xml, encoding="utf-8", xml_declaration=True)
+    
+    # Pretty-print (pekné naformátovanie s odsadením) pomocou minidom
+    rough_string = ET.tostring(xml_root_sk, encoding="utf-8")
+    reparsed = minidom.parseString(rough_string)
+    pretty_xml = reparsed.toprettyxml(indent="    ", encoding="utf-8")
+
+    with open(output_sk_xml, "wb") as f:
+        f.write(pretty_xml)
 
     print("\n" + "=" * 70)
     print(f"Preklad pre {book_info['name_sk']} bol úspešne dokončený!")
-    print(f" - Novopreložených veršov: {translated_count}")
-    print(f" - Načítaných z checkpointu: {skipped_count}")
-    print(f" - Výsledné XML: {output_sk_xml}")
+    print(f" - Výsledné SEB XML: {output_sk_xml}")
     print("=" * 70 + "\n")
 
 

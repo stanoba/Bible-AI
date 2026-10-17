@@ -67,11 +67,21 @@ tasks:
       - "{{.PYTHON}} {{.SCRIPTS_DIR}}/05_build_jsonl.py"
       - echo "Všetky výstupy boli úspešne vygenerované v '{{.OUTPUTS_DIR}}'."
 
-  clean:
-    desc: "Vymaže stiahnuté raw vstupy aj vygenerované výstupy (audio v data/audio zachová)"
+  all:
+    desc: "Kompletný end-to-end proces od nuly (clean -> download -> parse-audio -> align-audio -> build)"
     cmds:
-      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [item.is_dir() and shutil.rmtree(item, ignore_errors=True) or item.unlink(missing_ok=True) for item in Path('{{.DATA_RAW_DIR}}').iterdir() if item.name != '.gitkeep']\""
-      - echo "Stiahnuté raw vstupy a vygenerované výstupy boli úspešne vymazané."
+      - task: clean
+      - task: download
+      - task: parse-audio
+      - task: align-audio
+      - task: build
+      - echo "Kompletná end-to-end pipeline bola úspešne dokončená!"
+
+  clean:
+    desc: "Vymaže stiahnuté raw vstupy aj vygenerované výstupy (audio v data/audio a audio_timestamps.json zachová)"
+    cmds:
+      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [item.is_dir() and shutil.rmtree(item, ignore_errors=True) or item.unlink(missing_ok=True) for item in Path('{{.DATA_RAW_DIR}}').iterdir() if item.name not in ('.gitkeep', 'audio_timestamps.json')]\""
+      - echo "Stiahnuté raw vstupy a vygenerované výstupy boli úspešne vymazané (audio aj audio_timestamps.json boli zachované)."
 
   clean-outputs:
     desc: "Vymaže iba vygenerované výstupy v outputs/ (ponechá stiahnuté raw dáta aj audio)"

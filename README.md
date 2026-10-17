@@ -28,7 +28,8 @@ bible-ai/
 │   ├── 02_parse_audio.py         # Preskenovanie MP3 súborov a namapovanie na knihy/kapitoly
 │   ├── 03_build_markdown.py      # Generovanie Markdownu s odkazmi a mapami pre NotebookLM
 │   ├── 04_build_sqlite.py        # Generovanie SQLite databázy s FTS5 indexom
-│   └── 05_build_jsonl.py         # Generovanie JSONL súboru pre vektorové vkladanie (embeddings)
+│   ├── 05_build_jsonl.py         # Generovanie JSONL súboru pre vektorové vkladanie (embeddings)
+│   └── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
 └── outputs/
     ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
     ├── sqlite/                   # Databáza biblia.sqlite
@@ -68,6 +69,7 @@ Príkaz automaticky:
 |---|---|---|
 | **Stiahnutie dát** | `task download` | Stiahne XML Biblie, zip krížových odkazov a súbor `modern.jsonl`. |
 | **Indexovanie audia** | `task parse-audio` | Preskenuje MP3 súbory v `data/audio/` a vytvorí `audio_index.json`. |
+| **Časové značky (Whisper)** | `task align-audio` | Vygeneruje časové značky veršov z MP3 cez faster-whisper. |
 | **Generovanie MD** | `task markdown` | Vytvorí Markdown pre NotebookLM s odkazmi na verše, audio a Google Mapy. |
 | **Generovanie SQLite** | `task sqlite` | Vytvorí `biblia.sqlite` s tabuľkou veršov a full-textovým vyhľadávaním (FTS5). |
 | **Generovanie JSONL** | `task jsonl` | Vytvorí `biblia.jsonl` pre vektorové vyhľadávanie a trénovanie. |

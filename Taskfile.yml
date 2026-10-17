@@ -33,6 +33,11 @@ tasks:
     cmds:
       - "{{.PYTHON}} {{.SCRIPTS_DIR}}/02_parse_audio.py"
 
+  align-audio:
+    desc: "Vygeneruje časové značky veršov z MP3 pomocou Whisperu (faster-whisper)"
+    cmds:
+      - "{{.PYTHON}} {{.SCRIPTS_DIR}}/06_align_audio.py {{.CLI_ARGS}}"
+
   markdown:
     desc: "Vygeneruje Markdown súbory pre NotebookLM"
     deps: [download, parse-audio]

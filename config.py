@@ -29,6 +29,7 @@ FILE_BIBLE_XML = DATA_RAW_DIR / "SlovakianSEBBible.xml"
 FILE_CROSS_REFS = DATA_RAW_DIR / "cross_references.csv"
 FILE_GEOCODING = DATA_RAW_DIR / "modern.jsonl"
 FILE_AUDIO_INDEX = DATA_RAW_DIR / "audio_index.json"
+FILE_AUDIO_TIMESTAMPS = DATA_RAW_DIR / "audio_timestamps.json"
 
 FILE_SQLITE_DB = SQLITE_DIR / "biblia.sqlite"
 FILE_JSONL = JSONL_DIR / "biblia.jsonl"

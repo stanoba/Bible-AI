@@ -309,7 +309,9 @@ def main():
                             extra.append(f"⏱️ {verse_ts['start_formatted']} - {verse_ts['end_formatted']}")
 
                         info_tag = f" *({ ' | '.join(extra) })*" if extra else ""
-                        f.write(f"**{verse_num}.** {verse_text}{info_tag}\n")
+                        v_num_str = str(verse_num).strip()
+                        prefix = f"**{verse_num}.** " if v_num_str not in ("0", "") else ""
+                        f.write(f"{prefix}{verse_text}{info_tag}\n")
                     f.write("\n")
 
     print(f"  [OK] Markdown súbory boli úspešne vygenerované v {config.MARKDOWN_DIR}\n")

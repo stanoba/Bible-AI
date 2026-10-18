@@ -456,8 +456,10 @@ def main():
                     refs_html = f' <span class="cross-refs">(porov. {", ".join(formatted_links)})</span>'
 
                 verse_id = f"v_{chap_num}_{v_num}"
+                v_num_str = str(v_num).strip()
+                v_sup = f'<sup class="v-num">{v_num}</sup>' if v_num_str not in ("0", "") else ""
                 content.append(
-                    f'<span id="{verse_id}"><sup class="v-num">{v_num}</sup>{v_text}{refs_html}</span> '
+                    f'<span id="{verse_id}">{v_sup}{v_text}{refs_html}</span> '
                 )
 
             content.append('</p>')

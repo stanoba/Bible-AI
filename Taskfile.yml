@@ -22,7 +22,7 @@ tasks:
   init:
     desc: "Vytvorí potrebnú adresárovú štruktúru pre projekt"
     cmds:
-      - "{{.PYTHON}} -c \"from pathlib import Path; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.DATA_RAW_DIR}}', '{{.DATA_AUDIO_DIR}}', '{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/epub', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl', '{{.SCRIPTS_DIR}}']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.DATA_RAW_DIR}}', '{{.DATA_AUDIO_DIR}}', '{{.OUTPUTS_DIR}}']]\"
+      - '{{.PYTHON}} -c "from pathlib import Path; [Path(p).mkdir(parents=True, exist_ok=True) for p in [''{{.DATA_RAW_DIR}}'', ''{{.DATA_AUDIO_DIR}}'', ''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/epub'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'', ''{{.SCRIPTS_DIR}}'']]; [(Path(p)/''.gitkeep'').touch() for p in [''{{.DATA_RAW_DIR}}'', ''{{.DATA_AUDIO_DIR}}'', ''{{.OUTPUTS_DIR}}'']]"'
       - echo "Adresárová štruktúra bola úspešne vytvorená."
 
   download:
@@ -87,11 +87,11 @@ tasks:
   clean:
     desc: "Vymaže stiahnuté raw vstupy aj vygenerované výstupy (audio v data/audio a audio_timestamps.json zachová)"
     cmds:
-      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/epub', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/epub', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [item.is_dir() and shutil.rmtree(item, ignore_errors=True) or item.unlink(missing_ok=True) for item in Path('{{.DATA_RAW_DIR}}').iterdir() if item.name not in ('.gitkeep', 'audio_timestamps.json')]\"
+      - '{{.PYTHON}} -c "from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/epub'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/epub'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]; [(Path(p)/''.gitkeep'').touch() for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]; [item.is_dir() and shutil.rmtree(item, ignore_errors=True) or item.unlink(missing_ok=True) for item in Path(''{{.DATA_RAW_DIR}}'').iterdir() if item.name not in (''.gitkeep'', ''audio_timestamps.json'')]"'
       - echo "Stiahnuté raw vstupy a vygenerované výstupy boli úspešne vymazané (audio aj audio_timestamps.json boli zachované)."
 
   clean-outputs:
     desc: "Vymaže iba vygenerované výstupy v outputs/ (ponechá stiahnuté raw dáta aj audio)"
     cmds:
-      - "{{.PYTHON}} -c \"from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/epub', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/epub', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]; [(Path(p)/'.gitkeep').touch() for p in ['{{.OUTPUTS_DIR}}/markdown', '{{.OUTPUTS_DIR}}/sqlite', '{{.OUTPUTS_DIR}}/jsonl']]\"
+      - '{{.PYTHON}} -c "from pathlib import Path; import shutil; [shutil.rmtree(p, ignore_errors=True) for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/epub'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]; [Path(p).mkdir(parents=True, exist_ok=True) for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/epub'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]; [(Path(p)/''.gitkeep'').touch() for p in [''{{.OUTPUTS_DIR}}/markdown'', ''{{.OUTPUTS_DIR}}/sqlite'', ''{{.OUTPUTS_DIR}}/jsonl'']]"'
       - echo "Vygenerované výstupy v outputs/ boli úspešne vymazané."

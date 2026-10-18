@@ -139,25 +139,37 @@ def load_places():
     return places
 
 
+# Zoznam slovenských slov, ktoré vyzerajú ako mestá, ale v texte Biblie sú často všeobecnými slovami
+PLACE_BLACKLIST = {"veria"}
+
+
 def find_places_in_text(text: str, places_db: dict):
     matched = []
     seen = set()
-    words = re.findall(r'\b[a-zA-ZáäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ]+\b', text)
+
+    # Extrahujeme slová, ktoré sa začínajú VEĽKÝM písmenom (vlastné mená / mesta)
+    words = re.findall(r'\b[A-ZÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ][a-zA-Záäčďéíĺľňóôŕšťúýž]*\b', text)
+
     for w in words:
         w_lower = w.lower()
+
+        # Preskočíme slová z blacklistu
+        if w_lower in PLACE_BLACKLIST:
+            continue
+
         target_name = SLOVAK_PLACE_ALIASES.get(w_lower, w_lower)
         if target_name in places_db and target_name not in seen:
             matched.append(places_db[target_name])
             seen.add(target_name)
+
     return matched
+
 
 def parse_universal_bible_xml(root):
     """
-    Univerzálny parser:
-      - Pre apokryfy s atribútom 'name' (napr. 1En_sk.xml) použije vlastné názvy.
-      - Pre štandardnú SEB Bibliu použije originálnu funkciu config.parse_bible_elements.
+    Univerzálny parser podporujúci SEB Bibliu aj apokryfy.
+    Bezpečne spracováva aj nečíselné kapitoly a verše (napr. number="Prologue").
     """
-    # 1. Skontrolujeme, či prvá kniha v XML má priamo zadaný atribút 'name' alebo 'n'
     first_book = root.find(".//book")
     if first_book is None:
         first_book = root.find(".//b")
@@ -170,12 +182,21 @@ def parse_universal_bible_xml(root):
                 osis_code = book.attrib.get("code") or book.attrib.get("osis", "APOC")
                 
                 chapters = []
-                for chapter in book.findall("chapter") + book.findall("c"):
-                    chap_num = int(chapter.attrib.get("number") or chapter.attrib.get("n", 1))
+                for idx, chapter in enumerate(book.findall("chapter") + book.findall("c"), start=1):
+                    raw_num = chapter.attrib.get("number") or chapter.attrib.get("n", str(idx))
+                    try:
+                        chap_num = int(raw_num)
+                    except ValueError:
+                        chap_num = raw_num
                     
                     verses = []
-                    for verse in chapter.findall("verse") + chapter.findall("v"):
-                        v_num = int(verse.attrib.get("number") or verse.attrib.get("n", 1))
+                    for v_idx, verse in enumerate(chapter.findall("verse") + chapter.findall("v"), start=1):
+                        raw_v_num = verse.attrib.get("number") or verse.attrib.get("n", str(v_idx))
+                        try:
+                            v_num = int(raw_v_num)
+                        except ValueError:
+                            v_num = raw_v_num
+
                         v_text = verse.text or ""
                         verses.append({"verse_num": v_num, "text": v_text})
                     
@@ -189,8 +210,6 @@ def parse_universal_bible_xml(root):
                     })
         return books_data
 
-    # 2. Ak ide o kanonickú SEB Bibliu (kde <book number="1"> nemá atribút name),
-    # použijeme 100% pôvodnú funkciu z config.py
     return config.parse_bible_elements(root)
 
 
@@ -257,7 +276,11 @@ def main():
 
                 for chapter in book["chapters"]:
                     chap_num = chapter["chapter_num"]
-                    f.write(f"## {book_name} - Kapitola {chap_num}\n")
+                    
+                    if isinstance(chap_num, int):
+                        f.write(f"## {book_name} - Kapitola {chap_num}\n")
+                    else:
+                        f.write(f"## {book_name} - {chap_num}\n")
 
                     audio_key = f"{osis_code}_{chap_num}"
                     if audio_key in audio_index:

@@ -25,7 +25,8 @@ if hasattr(config, "OSIS_TO_SK"):
 
 def parse_universal_bible_xml(root):
     """
-    Univerzálny parser podporujúci SEB Bibliu aj apokryfy (1En_sk.xml, Jubi_sk.xml).
+    Univerzálny parser podporujúci SEB Bibliu aj apokryfy (1En_sk.xml, Jubi_sk.xml, SibOr_sk.xml).
+    Bezpečne spracováva aj nečíselné kapitoly (napr. number="Prologue").
     """
     first_book = root.find(".//book")
     if first_book is None:
@@ -39,12 +40,23 @@ def parse_universal_bible_xml(root):
                 osis_code = book.attrib.get("code") or book.attrib.get("osis", "APOC")
 
                 chapters = []
-                for chapter in book.findall("chapter") + book.findall("c"):
-                    chap_num = int(chapter.attrib.get("number") or chapter.attrib.get("n", 1))
+                for idx, chapter in enumerate(book.findall("chapter") + book.findall("c"), start=1):
+                    raw_num = chapter.attrib.get("number") or chapter.attrib.get("n", str(idx))
+
+                    # Bezpečný prevod na číslo, inak zachová reťazec (napr. "Prologue")
+                    try:
+                        chap_num = int(raw_num)
+                    except ValueError:
+                        chap_num = raw_num
 
                     verses = []
-                    for verse in chapter.findall("verse") + chapter.findall("v"):
-                        v_num = int(verse.attrib.get("number") or verse.attrib.get("n", 1))
+                    for v_idx, verse in enumerate(chapter.findall("verse") + chapter.findall("v"), start=1):
+                        raw_v_num = verse.attrib.get("number") or verse.attrib.get("n", str(v_idx))
+                        try:
+                            v_num = int(raw_v_num)
+                        except ValueError:
+                            v_num = raw_v_num
+
                         v_text = verse.text or ""
                         verses.append({"verse_num": v_num, "text": v_text})
 
@@ -136,13 +148,13 @@ def get_standard_osis_code(book_info):
 
 
 def create_epub_style():
-    """Vytvorí CSS štýl pre typografiu, titulný obrázok a odkazovanie v e-knihe."""
+    """Vytvorí CSS štýl pre blokovú typografiu, titulný obrázok a odkazovanie v e-knihe."""
     style = """
     @namespace epub "http://www.idpf.org/2007/ops";
     body {
         font-family: Georgia, "Times New Roman", serif;
         padding: 0 5%;
-        line-height: 1.5;
+        line-height: 1.6;
     }
     .cover-container {
         text-align: center;
@@ -185,28 +197,31 @@ def create_epub_style():
     h2 {
         text-align: center;
         font-size: 1.2em;
-        margin-top: 1.5em;
+        margin-top: 1.8em;
         margin-bottom: 0.8em;
         border-bottom: 1px solid #ccc;
         padding-bottom: 0.2em;
         color: #333333;
     }
-    p.verse-para {
-        text-indent: 0;
-        margin-bottom: 0.5em;
+    p.chapter-paragraph {
+        text-indent: 1.5em;
+        margin-top: 0;
+        margin-bottom: 0.8em;
         text-align: justify;
     }
     sup.v-num {
         font-size: 0.75em;
         font-weight: bold;
         color: #8b0000;
-        margin-right: 0.3em;
+        margin-left: 0.3em;
+        margin-right: 0.15em;
     }
     span.cross-refs {
         font-size: 0.85em;
         color: #555555;
         font-style: italic;
-        margin-left: 0.4em;
+        margin-left: 0.2em;
+        margin-right: 0.2em;
     }
     a.xref-link {
         color: #0056b3;
@@ -327,19 +342,21 @@ def main():
     output_filename = f"{xml_path.stem}.epub"
     output_filepath = epub_dir / output_filename
 
-    # Názov knižného diela
+    # Nastavenie názvu a autora podľa typu diela
     if xml_path.stem == "SlovakianSEBBible":
         title = "Slovenská Biblia (SEB)"
+        author = "Slovenská biblická spoločnosť"
     else:
         book_title = books_data[0]["book_name"] if books_data else xml_path.stem
         title = f"{book_title} (Slovenský preklad)"
+        author = "OCP / Bible AI"
 
     # Inicializácia EPUB objektu
     book = epub.EpubBook()
     book.set_identifier(f"bible-ai-{xml_path.stem.lower()}")
     book.set_title(title)
     book.set_language("sk")
-    book.add_author("Slovenská biblická spoločnosť / OCP / Bible AI")
+    book.add_author(author)
 
     # Pridanie CSS štýlov
     style_item = create_epub_style()
@@ -374,7 +391,20 @@ def main():
     book.add_item(about_item)
 
     epub_chapters = []
-    toc = [about_item]
+    
+    # Zoznamy pre roztriedenie kníh SEB Biblie
+    ot_toc = []   # Stará zmluva
+    dt_toc = []   # Deuterokánonické knihy
+    nt_toc = []   # Nová zmluva
+    flat_toc = [] # Pre apokryfy (ak nejde o celú Bibliu)
+
+    # Definícia OSIS kódov pre Deuterokánon a Novú zmluvu
+    DT_CODES = {"Tob", "Jdt", "Wis", "Sir", "Bar", "1Macc", "2Macc"}
+    NT_CODES = {
+        "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1Cor", "2Cor", "Gal", "Eph",
+        "Phil", "Col", "1Thess", "2Thess", "1Tim", "2Tim", "Titus", "Philem", "Heb",
+        "Jas", "1Pet", "2Pet", "1John", "2John", "3John", "Jude", "Rev"
+    }
 
     print(f"Spracovávam {len(books_data)} kníh do EPUB formátu...")
 
@@ -391,11 +421,27 @@ def main():
         epub_chap.add_item(style_item)
 
         content = [f"<h1>{book_name}</h1>"]
+        chapter_sub_toc = []
 
         for chapter in book_info["chapters"]:
             chap_num = chapter["chapter_num"]
-            chapter_title = f"{book_name} {chap_num}"
-            content.append(f'<h2 id="chap_{chap_num}">{chapter_title}</h2>')
+            chap_anchor = f"chap_{chap_num}"
+
+            # Pripravíme nadpis (ak je chap_num číslo: "Genezis 3", ak reťazec: "Sibiline proroctvá – Prologue")
+            if isinstance(chap_num, int):
+                chapter_title = f"{book_name} {chap_num}"
+                toc_label = f"Kapitola {chap_num}"
+            else:
+                chapter_title = f"{book_name} – {chap_num}"
+                toc_label = str(chap_num)
+
+            # Pridanie podkapitoly do stromového obsahu (TOC)
+            chapter_sub_toc.append(
+                epub.Link(f"{html_filename}#{chap_anchor}", toc_label, f"{osis_code.lower()}_{chap_num}")
+            )
+
+            content.append(f'<h2 id="{chap_anchor}">{chapter_title}</h2>')
+            content.append('<p class="chapter-paragraph">')
 
             for verse in chapter["verses"]:
                 v_num = verse["verse_num"]
@@ -411,20 +457,57 @@ def main():
 
                 verse_id = f"v_{chap_num}_{v_num}"
                 content.append(
-                    f'<p class="verse-para" id="{verse_id}"><sup class="v-num">{v_num}</sup>{v_text}{refs_html}</p>'
+                    f'<span id="{verse_id}"><sup class="v-num">{v_num}</sup>{v_text}{refs_html}</span> '
                 )
+
+            content.append('</p>')
 
         epub_chap.content = "".join(content)
         book.add_item(epub_chap)
         epub_chapters.append(epub_chap)
-        toc.append(epub_chap)
+
+        # Položka knižky s jej kapitolami pre TOC
+        book_item_toc = (epub.Section(book_name, href=html_filename), tuple(chapter_sub_toc))
+
+        # Zaradenie knižky do príslušnej sekcie podľa OSIS kódu
+        if xml_path.stem == "SlovakianSEBBible":
+            if osis_code in DT_CODES:
+                dt_toc.append(book_item_toc)
+            elif osis_code in NT_CODES:
+                nt_toc.append(book_item_toc)
+            else:
+                ot_toc.append(book_item_toc)
+        else:
+            if len(chapter_sub_toc) > 1:
+                flat_toc.append(book_item_toc)
+            else:
+                flat_toc.append(epub_chap)
+
+    # Skladanie výsledného viacúrovňového obsahu (TOC)
+    toc = [about_item]
+
+    if xml_path.stem == "SlovakianSEBBible":
+        if ot_toc:
+            # Odkaz na prvú knihu Starej zmluvy (Genezis - gen.xhtml)
+            first_ot_href = ot_toc[0][0].href
+            toc.append((epub.Section("Stará zmluva", href=first_ot_href), tuple(ot_toc)))
+        if dt_toc:
+            # Odkaz na prvú deuterokánonickú knihu (Tobiáš - tob.xhtml)
+            first_dt_href = dt_toc[0][0].href
+            toc.append((epub.Section("Deuterokánonické knihy", href=first_dt_href), tuple(dt_toc)))
+        if nt_toc:
+            # Odkaz na prvú knihu Novej zmluvy (Matúš - matt.xhtml)
+            first_nt_href = nt_toc[0][0].href
+            toc.append((epub.Section("Nová zmluva", href=first_nt_href), tuple(nt_toc)))
+    else:
+        toc.extend(flat_toc)
 
     # Nastavenie obsahu (TOC) a navigácie
     book.toc = tuple(toc)
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
 
-    # Nastavenie poradia čítania (spine): Obálka -> O tomto vydaní -> Navigácia -> Kapitoly
+    # Nastavenie poradia čítania (spine)
     spine_items = []
     if cover_html_item:
         spine_items.append(cover_html_item)

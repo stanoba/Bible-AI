@@ -34,65 +34,130 @@ FILE_AUDIO_TIMESTAMPS = DATA_RAW_DIR / "audio_timestamps.json"
 FILE_SQLITE_DB = SQLITE_DIR / "biblia.sqlite"
 FILE_JSONL = JSONL_DIR / "biblia.jsonl"
 
-# Mapovanie: OSIS kód -> Slovenská skratka
+# Reverzné mapovanie pre formátovanie skratiek v krížových odkazoch
 OSIS_TO_SK = {
-    "Gen": "Gen", "Exod": "Ex", "Lev": "Lev", "Num": "Num", "Deut": "Dtp",
-    "Josh": "Joz", "Judg": "Sdc", "Ruth": "Rút", "1Sam": "1 Sam", "2Sam": "2 Sam",
-    "1Kings": "1 Kráľ", "2Kings": "2 Kráľ", "1Chron": "1 Kron", "2Chron": "2 Kron",
+    "Gen": "Gn", "Exod": "Ex", "Lev": "Lv", "Num": "Nm", "Deut": "Dt",
+    "Josh": "Joz", "Judg": "Sdc", "Ruth": "Rút", "1Sam": "1Sam", "2Sam": "2Sam",
+    "1Kings": "1Krľ", "2Kings": "2Krľ", "1Chron": "1Krn", "2Chron": "2Krn",
     "Ezra": "Ezd", "Neh": "Neh", "Esth": "Est", "Job": "Jób", "Ps": "Ž",
-    "Prov": "Prís", "Eccl": "Kaz", "Song": "Pieseň", "Isa": "Iz", "Jer": "Jer",
-    "Lam": "Plač", "Ezek": "Ez", "Dan": "Dan", "Hos": "Oz", "Joel": "Joel",
-    "Amos": "Am", "Obad": "Abd", "Jonah": "Jon", "Mic": "Mik", "Nah": "Nah",
-    "Hab": "Hab", "Zeph": "Sof", "Hag": "Ag", "Zech": "Zch", "Mal": "Mal",
-    "Matt": "Mt", "Mark": "Mk", "Luke": "Lk", "John": "Ján", "Acts": "Sk",
-    "Rom": "Rim", "1Cor": "1 Kor", "2Cor": "2 Kor", "Gal": "Gal", "Eph": "Ef",
-    "Phil": "Flp", "Col": "Kol", "1Thess": "1 Sol", "2Thess": "2 Sol",
-    "1Tim": "1 Tim", "2Tim": "2 Tim", "Titus": "Tit", "Philem": "Flm",
-    "Heb": "Heb", "Jas": "Jak", "1Pet": "1 Pt", "2Pet": "2 Pt",
-    "1John": "1 Ján", "2John": "2 Ján", "3John": "3 Ján", "Jude": "Júd", "Rev": "Zjv",
+    "Prov": "Prís", "Eccl": "Koh", "Song": "Vľp", "Isa": "Iz", "Jer": "Jer",
+    "Lam": "Nár", "Ezek": "Ez", "Dan": "Dan", "Hos": "Oz", "Joel": "Joel",
+    "Amos": "Am", "Obad": "Abd", "Jonah": "Jon", "Mic": "Mich", "Nah": "Nah",
+    "Hab": "Hab", "Zeph": "Sof", "Hag": "Ag", "Zech": "Zach", "Mal": "Mal",
     "Tob": "Tob", "Jdt": "Jdt", "Wis": "Múd", "Sir": "Sir", "Bar": "Bar",
-    "1Macc": "1 Mak", "2Macc": "2 Mak"
+    "1Macc": "1Mak", "2Macc": "2Mak",
+    "Matt": "Mt", "Mark": "Mk", "Luke": "Lk", "John": "Jn", "Acts": "Sk",
+    "Rom": "Rim", "1Cor": "1Kor", "2Cor": "2Kor", "Gal": "Ga", "Eph": "Ef",
+    "Phil": "Flp", "Col": "Kol", "1Thess": "1Tes", "2Thess": "2Tes",
+    "1Tim": "1Tim", "2Tim": "2Tim", "Titus": "Tít", "Philem": "Flm",
+    "Heb": "Heb", "Jas": "Jk", "1Pet": "1Pt", "2Pet": "2Pt",
+    "1John": "1Jn", "2John": "2Jn", "3John": "3Jn", "Jude": "Júd", "Rev": "Zj"
 }
 
-# Mapovanie: Názov v XML -> OSIS kód
+# Úplné oficiálne názvy a skratky SEB (biblia.sk) -> OSIS kód
 SK_NAME_TO_OSIS = {
-    "Genezis": "Gen", "Exodus": "Exod", "Levitikus": "Lev", "Numeri": "Num", "Deuteronómium": "Deut",
-    "Jozua": "Josh", "Sudcovia": "Judg", "Rút": "Ruth", "Prvá kniha Samuelova": "1Sam", "Druhá kniha Samuelova": "2Sam",
-    "Prvá kniha kráľov": "1Kings", "Druhá kniha kráľov": "2Kings", "Prvá kniha kroník": "1Chron", "Druhá kniha kroník": "2Chron",
-    "Ezdráš": "Ezra", "Nehemiáš": "Neh", "Estera": "Esth", "Jób": "Job", "Žalmy": "Ps",
-    "Príslovia": "Prov", "Kniha kazateľ": "Eccl", "Pieseň piesní": "Song", "Izaiáš": "Isa", "Jeremiáš": "Jer",
-    "Plač": "Lam", "Ezechiel": "Ezek", "Daniel": "Dan", "Ozeáš": "Hos", "Joel": "Joel",
-    "Amos": "Amos", "Abdiáš": "Obad", "Jonáš": "Jonah", "Micheáš": "Mic", "Naum": "Nah",
-    "Habakuk": "Hab", "Sofoniáš": "Zeph", "Aggeus": "Hag", "Zachariáš": "Zech", "Malachiáš": "Mal",
-    "Evanjelium podľa Matúša": "Matt", "Evanjelium podľa Marka": "Mark",
-    "Evanjelium podľa Lukáša": "Luke", "Evanjelium podľa Jána": "John",
-    "Skutky apoštolov": "Acts", "List Rimanom": "Rom", "Prvý list Korinťanom": "1Cor", "Druhý list Korinťanom": "2Cor",
-    "List Galaťanom": "Gal", "List Efezanom": "Eph", "List Filipanom": "Phil", "List Kolosanom": "Col",
-    "Prvý list Solúnčanom": "1Thess", "Druhý list Solúnčanom": "2Thess",
-    "Prvý list Tímoteovi": "1Tim", "Druhý list Tímoteovi": "2Tim", "List Títovi": "Titus", "List Filemonovi": "Philem",
-    "List Hebrejom": "Heb", "Jakubov list": "Jas", "Prvý Petrov list": "1Pet", "Druhý Petrov list": "2Pet",
-    "Prvý Jánov list": "1John", "Druhý Jánov list": "2John", "Tretí Jánov list": "3John", "Júdov list": "Jude", "Zjavenie apoštola Jána": "Rev",
-    "Tobiáš": "Tob", "Judita": "Jdt", "Kniha múdrosti": "Wis", "Kniha Sirachovcova": "Sir", "Baruch": "Bar",
-    "Prvá kniha Makabejcov": "1Macc", "Druhá kniha Makabejcov": "2Macc"
+    # Stará zmluva
+    "Genezis": "Gen", "Genezis — Prvá Mojžišova kniha": "Gen", "Prvá Mojžišova kniha": "Gen", "Gn": "Gen",
+    "Exodus": "Exod", "Exodus — Druhá Mojžišova kniha": "Exod", "Druhá Mojžišova kniha": "Exod", "Ex": "Exod",
+    "Levitikus": "Lev", "Levitikus — Tretia Mojžišova kniha": "Lev", "Tretia Mojžišova kniha": "Lev", "Lv": "Lev",
+    "Numeri": "Num", "Numeri — Štvrtá Mojžišova kniha": "Num", "Štvrtá Mojžišova kniha": "Num", "Nm": "Num",
+    "Deuteronómium": "Deut", "Deuteronómium — Piata Mojžišova kniha": "Deut", "Piata Mojžišova kniha": "Deut", "Dt": "Deut",
+    "Jozua": "Josh", "Joz": "Josh",
+    "Kniha sudcov": "Judg", "Sudcovia": "Judg", "Sdc": "Judg",
+    "Rút": "Ruth",
+    "Prvá Samuelova kniha": "1Sam", "Prvá kniha Samuelova": "1Sam", "1Sam": "1Sam",
+    "Druhá Samuelova kniha": "2Sam", "Druhá kniha Samuelova": "2Sam", "2Sam": "2Sam",
+    "Prvá kniha kráľov": "1Kings", "1Krľ": "1Kings",
+    "Druhá kniha kráľov": "2Kings", "2Krľ": "2Kings",
+    "Prvá kniha kroník": "1Chron", "1Krn": "1Chron",
+    "Druhá kniha kroník": "2Chron", "2Krn": "2Chron",
+    "Ezdráš": "Ezra", "Ezd": "Ezra",
+    "Nehemiáš": "Neh",
+    "Ester": "Esth", "Estera": "Esth", "Est": "Esth",
+    "Jób": "Job",
+    "Žalmy": "Ps", "Ž": "Ps",
+    "Príslovia": "Prov", "Prís": "Prov",
+    "Kohelet — Kazateľ": "Eccl", "Kohelet": "Eccl", "Kazateľ": "Eccl", "Kniha kazateľ": "Eccl", "Koh": "Eccl",
+    "Veľpieseň": "Song", "Pieseň piesní": "Song", "Vľp": "Song",
+    "Izaiáš": "Isa", "Iz": "Isa",
+    "Jeremiáš": "Jer",
+    "Náreky": "Lam", "Plač": "Lam", "Nár": "Lam",
+    "Ezechiel": "Ezek", "Ez": "Ezek",
+    "Daniel": "Dan",
+    "Ozeáš": "Hos", "Oz": "Hos",
+    "Joel": "Joel",
+    "Amos": "Amos", "Am": "Amos",
+    "Abdiáš": "Obad", "Abd": "Obad",
+    "Jonáš": "Jonah", "Jon": "Jonah",
+    "Micheáš": "Mic", "Mich": "Mic",
+    "Nahum": "Nah", "Naum": "Nah",
+    "Habakuk": "Hab",
+    "Sofoniáš": "Zeph", "Sof": "Zeph",
+    "Aggeus": "Hag", "Ag": "Hag",
+    "Zachariáš": "Zech", "Zach": "Zech",
+    "Malachiáš": "Mal",
+
+    # Deuterokánonické knihy
+    "Tobiáš": "Tob", "Tob": "Tob",
+    "Judita": "Jdt", "Jdt": "Jdt",
+    "Ester (grécka verzia)": "Esth", "EstG": "Esth",
+    "Kniha múdrosti": "Wis", "Múd": "Wis",
+    "Kniha Sirachovca": "Sir", "Kniha Sirachovcova": "Sir", "Sir": "Sir",
+    "Baruch": "Bar",
+    "Jeremiášov list": "Bar", "JerL": "Bar",
+    "Traja mládenci v rozpálenej peci": "Dan", "S3M": "Dan",
+    "Zuzana": "Dan", "Zuz": "Dan",
+    "Bél a drak": "Dan", "Bél": "Dan",
+    "Prvá kniha Makabejcov": "1Macc", "1Mak": "1Macc",
+    "Druhá kniha Makabejcov": "2Macc", "2Mak": "2Macc",
+
+    # Nová zmluva
+    "Evanjelium podľa Matúša": "Matt", "Mt": "Matt",
+    "Evanjelium podľa Marka": "Mark", "Mk": "Mark",
+    "Evanjelium podľa Lukáša": "Luke", "Lk": "Luke",
+    "Evanjelium podľa Jána": "John", "Jn": "John",
+    "Skutky apoštolov": "Acts", "Sk": "Acts",
+    "List Rimanom": "Rom", "Rim": "Rom",
+    "Prvý list Korinťanom": "1Cor", "1Kor": "1Cor",
+    "Druhý list Korinťanom": "2Cor", "2Kor": "2Cor",
+    "List Galaťanom": "Gal", "Ga": "Gal",
+    "List Efezanom": "Eph", "Ef": "Eph",
+    "List Filipanom": "Phil", "Flp": "Phil",
+    "List Kolosanom": "Col", "Kol": "Col",
+    "Prvý list Tesaloničanom": "1Thess", "1Tes": "1Thess", "Prvý list Solúnčanom": "1Thess",
+    "Druhý list Tesaloničanom": "2Thess", "2Tes": "2Thess", "Druhý list Solúnčanom": "2Thess",
+    "Prvý list Timotejovi": "1Tim", "Prvý list Tímoteovi": "1Tim", "1Tim": "1Tim",
+    "Druhý list Timotejovi": "2Tim", "Druhý list Tímoteovi": "2Tim", "2Tim": "2Tim",
+    "List Títovi": "Titus", "Tít": "Titus",
+    "List Filemonovi": "Philem", "Flm": "Philem",
+    "List Hebrejom": "Heb",
+    "Jakubov list": "Jas", "Jk": "Jas",
+    "Prvý Petrov list": "1Pet", "1Pt": "1Pet",
+    "Druhý Petrov list": "2Pet", "2Pt": "2Pet",
+    "Prvý Jánov list": "1John", "1Jn": "1John",
+    "Druhý Jánov list": "2John", "2Jn": "2John",
+    "Tretí Jánov list": "3John", "3Jn": "3John",
+    "Júdov list": "Jude", "Júd": "Jude",
+    "Zjavenie Jána": "Rev", "Zjavenie apoštola Jána": "Rev", "Zj": "Rev"
 }
 
-# Poradie 66 biblických kníh podľa čísla (pre XML formáty, kde majú knihy iba number="1".."66")
+# Štandardizované porovnávacie názvy 66 kníh (podľa biblia.sk)
 BOOK_NUM_TO_INFO = {
     1: ("Genezis", "Gen"), 2: ("Exodus", "Exod"), 3: ("Levitikus", "Lev"), 4: ("Numeri", "Num"), 5: ("Deuteronómium", "Deut"),
-    6: ("Jozua", "Josh"), 7: ("Sudcovia", "Judg"), 8: ("Rút", "Ruth"), 9: ("Prvá kniha Samuelova", "1Sam"), 10: ("Druhá kniha Samuelova", "2Sam"),
+    6: ("Jozua", "Josh"), 7: ("Kniha sudcov", "Judg"), 8: ("Rút", "Ruth"), 9: ("Prvá Samuelova kniha", "1Sam"), 10: ("Druhá Samuelova kniha", "2Sam"),
     11: ("Prvá kniha kráľov", "1Kings"), 12: ("Druhá kniha kráľov", "2Kings"), 13: ("Prvá kniha kroník", "1Chron"), 14: ("Druhá kniha kroník", "2Chron"),
-    15: ("Ezdráš", "Ezra"), 16: ("Nehemiáš", "Neh"), 17: ("Estera", "Esth"), 18: ("Jób", "Job"), 19: ("Žalmy", "Ps"),
-    20: ("Príslovia", "Prov"), 21: ("Kniha kazateľ", "Eccl"), 22: ("Pieseň piesní", "Song"), 23: ("Izaiáš", "Isa"), 24: ("Jeremiáš", "Jer"),
-    25: ("Plač", "Lam"), 26: ("Ezechiel", "Ezek"), 27: ("Daniel", "Dan"), 28: ("Ozeáš", "Hos"), 29: ("Joel", "Joel"),
+    15: ("Ezdráš", "Ezra"), 16: ("Nehemiáš", "Neh"), 17: ("Ester", "Esth"), 18: ("Jób", "Job"), 19: ("Žalmy", "Ps"),
+    20: ("Príslovia", "Prov"), 21: ("Kohelet", "Eccl"), 22: ("Veľpieseň", "Song"), 23: ("Izaiáš", "Isa"), 24: ("Jeremiáš", "Jer"),
+    25: ("Náreky", "Lam"), 26: ("Ezechiel", "Ezek"), 27: ("Daniel", "Dan"), 28: ("Ozeáš", "Hos"), 29: ("Joel", "Joel"),
     30: ("Amos", "Amos"), 31: ("Abdiáš", "Obad"), 32: ("Jonáš", "Jonah"), 33: ("Micheáš", "Mic"), 34: ("Nahum", "Nah"),
     35: ("Habakuk", "Hab"), 36: ("Sofoniáš", "Zeph"), 37: ("Aggeus", "Hag"), 38: ("Zachariáš", "Zech"), 39: ("Malachiáš", "Mal"),
     40: ("Evanjelium podľa Matúša", "Matt"), 41: ("Evanjelium podľa Marka", "Mark"), 42: ("Evanjelium podľa Lukáša", "Luke"), 43: ("Evanjelium podľa Jána", "John"),
     44: ("Skutky apoštolov", "Acts"), 45: ("List Rimanom", "Rom"), 46: ("Prvý list Korinťanom", "1Cor"), 47: ("Druhý list Korinťanom", "2Cor"),
     48: ("List Galaťanom", "Gal"), 49: ("List Efezanom", "Eph"), 50: ("List Filipanom", "Phil"), 51: ("List Kolosanom", "Col"),
-    52: ("Prvý list Solúnčanom", "1Thess"), 53: ("Druhý list Solúnčanom", "2Thess"), 54: ("Prvý list Tímoteovi", "1Tim"), 55: ("Druhý list Tímoteovi", "2Tim"),
+    52: ("Prvý list Tesaloničanom", "1Thess"), 53: ("Druhý list Tesaloničanom", "2Thess"), 54: ("Prvý list Timotejovi", "1Tim"), 55: ("Druhý list Timotejovi", "2Tim"),
     56: ("List Títovi", "Titus"), 57: ("List Filemonovi", "Philem"), 58: ("List Hebrejom", "Heb"), 59: ("Jakubov list", "Jas"),
     60: ("Prvý Petrov list", "1Pet"), 61: ("Druhý Petrov list", "2Pet"), 62: ("Prvý Jánov list", "1John"), 63: ("Druhý Jánov list", "2John"),
-    64: ("Tretí Jánov list", "3John"), 65: ("Júdov list", "Jude"), 66: ("Zjavenie apoštola Jána", "Rev")
+    64: ("Tretí Jánov list", "3John"), 65: ("Júdov list", "Jude"), 66: ("Zjavenie Jána", "Rev")
 }
 
 # Mapovanie MP3 adresárov na OSIS kód
@@ -117,7 +182,6 @@ FOLDER_TO_OSIS = {
     "5_dt_kniha_sirachovca": "Sir", "6_dt_baruch": "Bar", "7_dt_pridavky_daniel": "Dan",
     "8_dt_prva_makabejcov": "1Macc", "9_dt_druha_makabejcov": "2Macc"
 }
-
 
 def parse_bible_elements(root):
     """

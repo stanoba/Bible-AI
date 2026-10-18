@@ -136,13 +136,44 @@ def get_standard_osis_code(book_info):
 
 
 def create_epub_style():
-    """Vytvorí CSS štýl pre typografiu a odkazovanie v e-knihe."""
+    """Vytvorí CSS štýl pre typografiu, titulný obrázok a odkazovanie v e-knihe."""
     style = """
     @namespace epub "http://www.idpf.org/2007/ops";
     body {
         font-family: Georgia, "Times New Roman", serif;
         padding: 0 5%;
         line-height: 1.5;
+    }
+    .cover-container {
+        text-align: center;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+    }
+    .cover-image {
+        max-width: 100%;
+        max-height: 100%;
+        height: auto;
+        width: auto;
+    }
+    .about-page {
+        padding: 1em 0;
+    }
+    .about-page h2 {
+        border-bottom: 2px solid #8b0000;
+        padding-bottom: 0.3em;
+        margin-top: 1.5em;
+    }
+    .about-page p {
+        margin-bottom: 1em;
+        text-align: justify;
+    }
+    .disclaimer-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #8b0000;
+        padding: 0.8em 1em;
+        margin: 1.5em 0;
+        font-size: 0.95em;
     }
     h1 {
         text-align: center;
@@ -192,6 +223,73 @@ def create_epub_style():
         media_type="text/css",
         content=style
     )
+
+
+def find_cover_image(stem_name):
+    """
+    Hľadá titulný obrázok v adresári assets/ pre daný názov XML (napr. assets/SlovakianSEBBible.jpg).
+    """
+    assets_dir = config.BASE_DIR / "assets"
+    if not assets_dir.exists():
+        return None
+
+    extensions = [".jpg", ".jpeg", ".png"]
+    for ext in extensions:
+        cover_file = assets_dir / f"{stem_name}{ext}"
+        if cover_file.exists():
+            return cover_file
+    return None
+
+
+def create_about_page(stem_name, title, style_item):
+    """
+    Vytvorí stranu s informáciami o vydaní, autorských právach a licencii.
+    """
+    about_item = epub.EpubHtml(
+        title="O tomto vydaní",
+        file_name="about_page.xhtml",
+        lang="sk"
+    )
+    about_item.add_item(style_item)
+
+    if stem_name == "SlovakianSEBBible":
+        html_content = f"""
+        <div class="about-page">
+            <h2>Informácie o vydaní a autorských právach</h2>
+            <p><strong>Titul:</strong> {title}</p>
+            <p><strong>Preklad:</strong> Slovenský ekumenický preklad (SEB)</p>
+            <p><strong>Autorské práva k prekladu:</strong> © Slovenská biblická spoločnosť. Všetky práva vyhradené.</p>
+            
+            <div class="disclaimer-box">
+                <p><strong>Upozornenie o použití:</strong> Tento digitálny súbor bol vygenerovaný pre osobnú potrebu, štúdium a akademický výskum pomocou automatizovanej dátovej pipeline projektu <strong>Bible AI</strong>. Tento súbor nie je určený na komerčné šírenie ani predaj.</p>
+            </div>
+
+            <h2>Kód a nástroje</h2>
+            <p>Dátové skripty a konverzný kód sú licencované pod <strong>MIT License</strong> (<em>Copyright (c) 2026 Bible AI Contributors</em>).</p>
+            <p>Vytvorené pomocou projektu <a href="https://github.com/stanoba/bible-ai">Bible AI</a>.</p>
+        </div>
+        """
+    else:
+        html_content = f"""
+        <div class="about-page">
+            <h2>Informácie o vydaní a licencii</h2>
+            <p><strong>Titul:</strong> {title}</p>
+            <p><strong>Pôvodný text:</strong> Public Domain (voľné dielo)</p>
+            <p><strong>Slovenský preklad:</strong> Vygenerované pomocou umelej inteligencie (AI) z anglických, latinských a gréckych prameňov v rámci projektu <strong>Bible AI</strong>.</p>
+
+            <div class="disclaimer-box">
+                <p><strong>Upozornenie:</strong> Preklad bol spracovaný automatizovanými modelmi AI a je určený predovšetkým na študijné, výskumné a osobné účely. Mnoho pasáží môže obsahovať štylistické alebo terminologické nepresnosti.</p>
+            </div>
+
+            <h2>Licencia</h2>
+            <p>Tento slovenský preklad a sprievodný kód sú licencované pod <strong>MIT License</strong>:</p>
+            <p><em>Copyright (c) 2026 Bible AI Contributors</em></p>
+            <p>Vytvorené pomocou projektu <a href="https://github.com/stanoba/bible-ai">Bible AI</a>.</p>
+        </div>
+        """
+
+    about_item.content = html_content
+    return about_item
 
 
 def main():
@@ -247,8 +345,36 @@ def main():
     style_item = create_epub_style()
     book.add_item(style_item)
 
+    # Pridanie titulnej obálky (ak existuje v assets/)
+    cover_file = find_cover_image(xml_path.stem)
+    cover_html_item = None
+
+    if cover_file:
+        print(f"  -> Pridávam titulnú obálku z: {cover_file}")
+        with open(cover_file, "rb") as cf:
+            cover_bytes = cf.read()
+            cover_filename = f"cover_img{cover_file.suffix}"
+            book.set_cover(cover_filename, cover_bytes)
+
+        cover_html_item = epub.EpubHtml(
+            title="Obálka",
+            file_name="title_page.xhtml",
+            lang="sk"
+        )
+        cover_html_item.add_item(style_item)
+        cover_html_item.content = f"""
+        <div class="cover-container">
+            <img src="{cover_filename}" alt="Obálka" class="cover-image" />
+        </div>
+        """
+        book.add_item(cover_html_item)
+
+    # Pridanie tirážnej strany "O tomto vydaní"
+    about_item = create_about_page(xml_path.stem, title, style_item)
+    book.add_item(about_item)
+
     epub_chapters = []
-    toc = []
+    toc = [about_item]
 
     print(f"Spracovávam {len(books_data)} kníh do EPUB formátu...")
 
@@ -268,13 +394,13 @@ def main():
 
         for chapter in book_info["chapters"]:
             chap_num = chapter["chapter_num"]
-            content.append(f'<h2 id="chap_{chap_num}">Kapitola {chap_num}</h2>')
+            chapter_title = f"{book_name} {chap_num}"
+            content.append(f'<h2 id="chap_{chap_num}">{chapter_title}</h2>')
 
             for verse in chapter["verses"]:
                 v_num = verse["verse_num"]
                 v_text = verse["text"]
 
-                # Hľadanie krížových odkazov podľa OSIS kľúča (napr. Gen.1.1)
                 osis_key = f"{osis_code}.{chap_num}.{v_num}"
                 refs_list = cross_refs.get(osis_key, [])
 
@@ -298,8 +424,13 @@ def main():
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
 
-    # Nastavenie sekvencie čítania (spine)
-    book.spine = ["nav"] + epub_chapters
+    # Nastavenie poradia čítania (spine): Obálka -> O tomto vydaní -> Navigácia -> Kapitoly
+    spine_items = []
+    if cover_html_item:
+        spine_items.append(cover_html_item)
+    spine_items.append(about_item)
+    spine_items.extend(["nav"] + epub_chapters)
+    book.spine = spine_items
 
     # Zápis výstupného EPUB súboru
     epub.write_epub(output_filepath, book, {})

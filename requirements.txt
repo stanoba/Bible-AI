@@ -4,6 +4,8 @@
 # Balíček pre extrakciu časových značiek z MP3 (task align-audio):
 faster-whisper>=1.0.0
 
+ebooklib
+
 # Voliteľné balíčky pre ďalšiu prácu (napr. vektorové databázy):
 # chromadb>=0.5.0
 # tqdm>=4.66.0

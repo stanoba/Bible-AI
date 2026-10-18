@@ -5,6 +5,7 @@
 faster-whisper>=1.0.0
 
 ebooklib
+deepl
 
 # Voliteľné balíčky pre ďalšiu prácu (napr. vektorové databázy):
 # chromadb>=0.5.0

@@ -2,7 +2,7 @@
 
 ![Bible AI Pipeline](title.jpg)
 
-Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), apokryfných kníh (1En, Jubi), krížových odkazov (OpenBible.info cross-references), geografických GPS dát, lokálnych MP3 audio nahrávok a generovanie plnohodnotných **EPUB3 e-kníh**.
+Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), apokryfných kníh (1En, Jubi, SibOr, LivPro, AdamEve atď.), krížových odkazov (OpenBible.info cross-references), geografických GPS dát, lokálnych MP3 audio nahrávok a generovanie plnohodnotných **EPUB3 e-kníh**.
 
 Výsledné dáta sú pripravené pre:
 
@@ -22,7 +22,7 @@ Pri používaní projektu a jeho dát, prosím, berte na vedomie nasledovné:
 ### 1. Autorské práva na texty a preklady
 
 * **Slovenský ekumenický preklad (SEB):** Texty sú chránené autorským zákonom a patria ich príslušným držiteľom práv (Slovenská biblická spoločnosť). Surový XML súbor `SlovakianSEBBible.xml` ani MP3 nahrávky **nie sú priamou súčasťou tohto git repozitára** z dôvodu ochrany autorských práv. Pipeline je navrhnutá tak, aby si oprávnený používateľ stiahol/pripravil tieto súbory do svojho lokálneho prostredia sám (napr. cez `task download` z voľne dostupných internetových zdrojov alebo vlastným importom).
-* **OCP Apokryfy / Pseudepigrafy (napr. 1En, Jubi):** Sú prekladané z historických, verejne dostupných (public domain) anglických a kritických predlôh (Online Critical Pseudepigrapha). Slovenský preklad týchto apokryfov je generovaný lokálnym alebo cloudovým AI modelom pod **MIT licenciou** (*Copyright (c) 2026 Bible AI Contributors*).
+* **OCP Apokryfy / Pseudepigrafy (napr. 1En, Jubi, SibOr):** Sú prekladané z historických, verejne dostupných (public domain) anglických a kritických predlôh (Online Critical Pseudepigrapha). Slovenský preklad týchto apokryfov je generovaný AI modelmi alebo oficiálnym prekladateľským rozhraním pod **MIT licenciou** (*Copyright (c) 2026 Bible AI Contributors*).
 
 ### 2. Audio nahrávky
 
@@ -30,23 +30,21 @@ Pri používaní projektu a jeho dát, prosím, berte na vedomie nasledovné:
 
 ### 3. Použitie AI (Umelá inteligencia) a Záruky
 
-* Preklady apokryfov a obohatené metadáta sú generované prostredníctvom veľkých jazykových modelov (LLM). Hoci prebieha dvojprechodová korektúra, AI môže generovať nepresnosti alebo halucinácie.
+* Preklady apokryfov a obohatené metadáta sú generované prostredníctvom veľkých jazykových modelov (LLM) alebo prekladateľských API (DeepL). Hoci prebieha korektúra a kontrola, AI môže generovať nepresnosti alebo halucinácie.
 * Tento softvér je poskytovaný „tak, ako je“ (as is), bez akejkoľvek záruky. Autori projektu nenesú žiadnu zodpovednosť za akékoľvek porušenie autorských práv tretích strán spôsobené nesprávnym alebo komerčným šírením dát získaných prostredníctvom tejto pipeline.
 
 ---
 
 ## 📁 Štruktúra projektu
 
-
-```
-
+```text
 bible-ai/
 ├── Taskfile.yml                  # Automatizácia úloh (taskfile.dev)
 ├── config.py                     # Cesty, URL adresy a mapovania OSIS kódov
-├── requirements.txt              # Závislosti (štandardná knižnica Pythonu + ebooklib)
-├── assets/                       # Titulné obrázky/obálky pre EPUB e-knihy (SlovakianSEBBible.jpg, 1En_sk.jpg, Jubi_sk.jpg)
+├── requirements.txt              # Závislosti (ebooklib, deepl, atď.)
+├── assets/                       # Titulné obrázky/obálky pre EPUB e-knihy (SlovakianSEBBible.jpg, 1En_sk.jpg, SibOr_sk.jpg)
 ├── data/
-│   ├── raw/                      # Surové stiahnuté dáta
+│   ├── raw/                      # Surové stiahnuté dáta a prekladové checkpointy
 │   │   ├── SlovakianSEBBible.xml # XML text Biblie
 │   │   ├── cross_references.csv  # Krížové odkazy s váhami (OpenBible)
 │   │   └── modern.jsonl          # GPS geokódovanie biblických miest
@@ -58,13 +56,14 @@ bible-ai/
 │   ├── 04_build_sqlite.py        # Generovanie SQLite databázy s FTS5 indexom
 │   ├── 05_build_jsonl.py         # Generovanie JSONL súboru pre vektorové vkladanie (embeddings)
 │   ├── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
-│   ├── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov do slovenčiny
-│   └── 08_build_epub.py          # Generovanie EPUB3 e-kníh s obálkami a krížovými odkazmi
+│   ├── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov cez LM Studio
+│   ├── 08_build_epub.py          # Generovanie EPUB3 e-kníh s obálkami a krížovými odkazmi
+│   └── 09_translate_deepl.py     # Rýchly vysoko kvalitný preklad OCP apokryfov cez DeepL API
 └── outputs/
-├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
-├── sqlite/                   # Databáza biblia.sqlite
-├── jsonl/                    # Dataset biblia.jsonl
-└── epub/                     # Vygenerované EPUB e-knihy (SlovakianSEBBible.epub, 1En_sk.epub...)
+    ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
+    ├── sqlite/                   # Databáza biblia.sqlite
+    ├── jsonl/                    # Dataset biblia.jsonl
+    └── epub/                     # Vygenerované EPUB e-knihy (SlovakianSEBBible.epub, SibOr_sk.epub...)
 
 ```
 
@@ -101,16 +100,51 @@ Príkaz automaticky:
 
 ---
 
+## 🌐 Preklad apokryfov cez DeepL API (`scripts/09_translate_deepl.py`)
+
+Pre dosiahnutie špičkovej štylistickej kvality prekladu v slovenčine a vysokú rýchlosť spracovania je v pipeline k dispozícii skript `09_translate_deepl.py`.
+
+### Kľúčové vlastnosti prekladača:
+
+* **Paralelné spracovanie:** Využíva viacvláknový `ThreadPoolExecutor` pre bleskový preklad celých kníh.
+* **Resilience & Checkpointing:** Priebežne ukladá preložené verše do `data/raw/<BOOK>_checkpoint.json`. Pri prerušení alebo výpadku siete plynule nadviaže bez opätovného míňania znakového limitu.
+* **Odolnosť voči zamknutým súborom na Windowse:** Atomický zápis s retrom bráni chybám typu `[WinError 5] Access is denied`.
+* **Automatické ošetrenie Rate-Limitov:** Pri dočasnom preťažení serverov DeepL (HTTP 429) skript automaticky aplikuje stupňovité čakanie (exponential backoff) a pokus bezpečne zopakuje.
+
+### Nastavenie API kľúča:
+
+Získajte bezplatný API kľúč na stránke [DeepL API Free](https://www.deepl.com/pro-api) (obsahuje **500 000 znakov mesačne zadarmo**) a nastavte ho ako premennú prostredia:
+
+* **Windows (PowerShell):** `$env:DEEPL_API_KEY="VÁŠ_DEEPL_API_KĽÚČ"`
+* **Linux / macOS:** `export DEEPL_API_KEY="VÁŠ_DEEPL_API_KĽÚČ"`
+
+### Príkazy na preklad:
+
+```bash
+# Preklad Sibiliných proroctiev (SibOr)
+python scripts/09_translate_deepl.py --book SibOr -t 2
+
+# Preklad 1. knihy Henochovej (1En)
+python scripts/09_translate_deepl.py --book 1En -t 2
+
+# Preklad Životov prorokov (LivPro)
+python scripts/09_translate_deepl.py --book LivPro -t 2
+
+```
+
+---
+
 ## 📚 Generovanie EPUB e-kníh (`scripts/08_build_epub.py`)
 
 Skript `08_build_epub.py` umožňuje vytvárať štandardizované **EPUB3 e-knihy** optimalizované pre čítačky **Kindle, Kobo, PocketBook, Apple Books a Calibre**.
 
 ### Kľúčové vlastnosti EPUB generátora:
 
-* **Automatické priradenie obálky (Cover Art):** Ak sa v priečinku `assets/` nachádza obrázok zodpovedajúci názvu XML súboru (napr. `assets/SlovakianSEBBible.jpg` alebo `assets/1En_sk.jpg`), automaticky ho nastaví ako oficiálnu obálku balíčka a zároveň ho vloží ako prvá vizuálna strana e-knihy.
+* **Automatické priradenie obálky (Cover Art):** Ak sa v priečinku `assets/` nachádza obrázok zodpovedajúci názvu XML súboru (napr. `assets/SlovakianSEBBible.jpg` alebo `assets/SibOr_sk.jpg`), automaticky ho nastaví ako oficiálnu obálku balíčka a zároveň ho vloží ako prvá vizuálna strana e-knihy.
+* **Podpora nečíselných kapitol:** Bezpečne spracováva aj prológy a textové identifikátory kapitol (napr. `number="Prologue"` v apokryfoch).
 * **Interaktívne krížové odkazy:** Krížové referencie z OpenBible sa prevádzajú na klikateľné HTML hyperlinky (`<a href="matt.xhtml#v_2_1">Mt 2,1</a>`). Kliknutím v e-čítačke okamžite skočíte na cieľový verš.
-* **Dynamické nadpisy kapitol:** Kapitoly majú štruktúrovaný nadpis s názvom knižky a číslom kapitoly (napr. *Genezis 3*, *1. Kniha Henochova 5*).
-* **Automatycká tiráž a licencia:** Každá e-kniha obsahuje stranu *O tomto vydaní* s informáciami o licencii (MIT pre AI preklady, autorské práva SEB pre Bibliu).
+* **Stromový obsah (TOC):** Pre celú SEB Bibliu vygeneruje trojúrovňový strom (Stará zmluva, Deuterokánonické knihy, Nová zmluva) s funkčnými kategóriami.
+* **Automatická tiráž a licencia:** Každá e-kniha obsahuje stranu *O týmto vydaní* s informáciami o licencii (MIT pre AI preklady, autorské práva SEB pre Bibliu).
 
 ### Príkazy na vygenerovanie EPUB:
 
@@ -118,27 +152,29 @@ Skript `08_build_epub.py` umožňuje vytvárať štandardizované **EPUB3 e-knih
 # Vygenerovanie štandardnej SEB Biblie
 python scripts/08_build_epub.py
 
-# Vygenerovanie apokryfnej knihy (napr. 1. Kniha Henochova)
-python scripts/08_build_epub.py --xml data/raw/1En_sk.xml
+# Vygenerovanie apokryfnej knihy (napr. Sibiline proroctvá)
+python scripts/08_build_epub.py --xml data/raw/SibOr_sk.xml
 
-# Vygenerovanie Knihy Jubileí
-python scripts/08_build_epub.py --xml data/raw/Jubi_sk.xml
+# Vygenerovanie 1. knihy Henochovej
+python scripts/08_build_epub.py --xml data/raw/1En_sk.xml
 
 ```
 
 ---
 
-## Odporúčaný model pre LM Studio - preklad apokryfov
+## 🤖 Lokálny preklad cez LM Studio (`scripts/07_translate_apocrypha.py`)
 
-* **Názov:** `gemma-2-9b-it` (Gemma 2 9B Instruct)
-* **Kontextové okno:** `2048`
+Pre plne offline lokálny preklad pomocou vlastnej GPU karta je k dispozícii skript `07_translate_apocrypha.py`.
+
+* **Odporúčaný model:** `gemma-2-9b-it` (Gemma 2 9B Instruct) alebo `Qwen2.5-32B-Instruct`
+* **Kontextové okno:** `2048+`
 * **GPU Offload:** `100 % (MAX)`
 * **Temperature:** `0.1`
 
-### Systémové prompty
+```bash
+python scripts/07_translate_apocrypha.py --book 1En -t 2
 
-* **Pass 1 (Preklad):** `Si prekladateľ starovekých a biblických textov z angličtiny/latinčiny do slovenčiny. Prelož verš presne. Vráť IBA preložený slovenský text.`
-* **Pass 2 (Korektúra):** `Si profesionálny slovenský teologický redaktor a jazykový korektor.`
+```
 
 ---
 
@@ -153,14 +189,15 @@ python scripts/08_build_epub.py --xml data/raw/Jubi_sk.xml
 | **Generovanie SQLite** | `task sqlite` | Vytvorí `biblia.sqlite` s tabuľkou veršov a full-textovým vyhľadávaním (FTS5). |
 | **Generovanie JSONL** | `task jsonl` | Vytvorí `biblia.jsonl` pre vektorové vyhľadávanie a trénovanie. |
 | **Generovanie EPUB** | `task epub` | Vygeneruje EPUB3 e-knihu s obálkou, tirážou a krížovými odkazmi. |
-| **Preklad apokryfov** | `python scripts/07_translate_apocrypha.py --book 1En -t 2` | Preloží nekanonickú knihu z OCP (napr. 1En, Jubi, 4Ezra) cez LM Studio do čistej slovenčiny. |
+| **Preklad cez DeepL** | `python scripts/09_translate_deepl.py --book SibOr -t 2` | Rýchly preklad OCP apokryfu do slovenčiny cez oficiálne DeepL API. |
+| **Preklad cez LM Studio** | `python scripts/07_translate_apocrypha.py --book 1En -t 2` | Offline dvojprechodový preklad OCP apokryfu cez lokálny LLM model. |
 | **Kompletný proces (All)** | `task all` | Spustí end-to-end proces od nuly (clean -> download -> parse-audio -> align-audio -> build). |
 | **Kompletné prečistenie** | `task clean` | Vymaže stiahnuté dáta v `data/raw/` aj výstupy v `outputs/` (audio v `data/audio/` a `audio_timestamps.json` ponechá). |
 | **Prečistenie výstupov** | `task clean-outputs` | Vymaže iba priečinky v `outputs/` (ponechá surové XML, referencie, GPS, audio aj časové značky). |
 
 ---
 
-## 🔍 Ako používať výstupy
+## 🔍 Ako používovať výstupy
 
 ### 1. E-čítačky (Kindle / Kobo / Calibre)
 

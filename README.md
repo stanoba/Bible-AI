@@ -1,14 +1,15 @@
-# Bible AI Pipeline (Slovenská Biblia pre AI modely)
+# Bible AI Pipeline (Slovenská Biblia pre AI modely a e-čítačky)
 
 ![Bible AI Pipeline](title.jpg)
 
-Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), krížových odkazov (OpenBible.info cross-references), geografických GPS dát a lokálnych MP3 audio nahrávok.
+Automatizovaná dátová pipeline na predspracovanie a obohatenie textu Biblie (Slovenský ekumenický / katolícky preklad), apokryfných kníh (1En, Jubi), krížových odkazov (OpenBible.info cross-references), geografických GPS dát, lokálnych MP3 audio nahrávok a generovanie plnohodnotných **EPUB3 e-kníh**.
 
 Výsledné dáta sú pripravené pre:
 
-1. **Google NotebookLM** (štruktúrovaný Markdown rozdelený do súborov v limite 50 zdrojov).
-2. **Antigravity / SQL agentov** (SQLite databáza s FTS5 full-textovým indexom).
-3. **Vektorové databázy / RAG** (JSONL formát pripravený pre ChromaDB, Pinecone, Qdrant).
+1. **E-čítačky a Calibre** (Interaktívne EPUB3 e-knihy s krížovými odkazmi, automatickými obálkami z `assets/` a tirážou).
+2. **Google NotebookLM** (štruktúrovaný Markdown rozdelený do súborov v limite 50 zdrojov).
+3. **Antigravity / SQL agentov** (SQLite databáza s FTS5 full-textovým indexom).
+4. **Vektorové databázy / RAG** (JSONL formát pripravený pre ChromaDB, Pinecone, Qdrant).
 
 ---
 
@@ -21,7 +22,7 @@ Pri používaní projektu a jeho dát, prosím, berte na vedomie nasledovné:
 ### 1. Autorské práva na texty a preklady
 
 * **Slovenský ekumenický preklad (SEB):** Texty sú chránené autorským zákonom a patria ich príslušným držiteľom práv (Slovenská biblická spoločnosť). Surový XML súbor `SlovakianSEBBible.xml` ani MP3 nahrávky **nie sú priamou súčasťou tohto git repozitára** z dôvodu ochrany autorských práv. Pipeline je navrhnutá tak, aby si oprávnený používateľ stiahol/pripravil tieto súbory do svojho lokálneho prostredia sám (napr. cez `task download` z voľne dostupných internetových zdrojov alebo vlastným importom).
-* **OCP Apokryfy / Pseudepigrafy (napr. 1En, Jubi):** Sú prekladané z historických, verejne dostupných (public domain) anglických a kritických predlôh (Online Critical Pseudepigrapha). Slovenský preklad týchto apokryfov je generovaný lokálnym alebo cloudovým AI modelom.
+* **OCP Apokryfy / Pseudepigrafy (napr. 1En, Jubi):** Sú prekladané z historických, verejne dostupných (public domain) anglických a kritických predlôh (Online Critical Pseudepigrapha). Slovenský preklad týchto apokryfov je generovaný lokálnym alebo cloudovým AI modelom pod **MIT licenciou** (*Copyright (c) 2026 Bible AI Contributors*).
 
 ### 2. Audio nahrávky
 
@@ -36,11 +37,14 @@ Pri používaní projektu a jeho dát, prosím, berte na vedomie nasledovné:
 
 ## 📁 Štruktúra projektu
 
+
 ```
+
 bible-ai/
 ├── Taskfile.yml                  # Automatizácia úloh (taskfile.dev)
 ├── config.py                     # Cesty, URL adresy a mapovania OSIS kódov
-├── requirements.txt              # Závislosti (štandardná knižnica Pythonu)
+├── requirements.txt              # Závislosti (štandardná knižnica Pythonu + ebooklib)
+├── assets/                       # Titulné obrázky/obálky pre EPUB e-knihy (SlovakianSEBBible.jpg, 1En_sk.jpg, Jubi_sk.jpg)
 ├── data/
 │   ├── raw/                      # Surové stiahnuté dáta
 │   │   ├── SlovakianSEBBible.xml # XML text Biblie
@@ -54,11 +58,13 @@ bible-ai/
 │   ├── 04_build_sqlite.py        # Generovanie SQLite databázy s FTS5 indexom
 │   ├── 05_build_jsonl.py         # Generovanie JSONL súboru pre vektorové vkladanie (embeddings)
 │   ├── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
-│   └── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov do slovenčiny
+│   ├── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov do slovenčiny
+│   └── 08_build_epub.py          # Generovanie EPUB3 e-kníh s obálkami a krížovými odkazmi
 └── outputs/
-    ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
-    ├── sqlite/                   # Databáza biblia.sqlite
-    └── jsonl/                    # Dataset biblia.jsonl
+├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
+├── sqlite/                   # Databáza biblia.sqlite
+├── jsonl/                    # Dataset biblia.jsonl
+└── epub/                     # Vygenerované EPUB e-knihy (SlovakianSEBBible.epub, 1En_sk.epub...)
 
 ```
 
@@ -91,6 +97,34 @@ Príkaz automaticky:
 3. Vygeneruje Markdown súbory v `outputs/markdown/`.
 4. Vytvorí SQLite databázu v `outputs/sqlite/biblia.sqlite`.
 5. Vygeneruje JSONL súbor v `outputs/jsonl/biblia.jsonl`.
+6. Vygeneruje EPUB3 e-knihy v `outputs/epub/`.
+
+---
+
+## 📚 Generovanie EPUB e-kníh (`scripts/08_build_epub.py`)
+
+Skript `08_build_epub.py` umožňuje vytvárať štandardizované **EPUB3 e-knihy** optimalizované pre čítačky **Kindle, Kobo, PocketBook, Apple Books a Calibre**.
+
+### Kľúčové vlastnosti EPUB generátora:
+
+* **Automatické priradenie obálky (Cover Art):** Ak sa v priečinku `assets/` nachádza obrázok zodpovedajúci názvu XML súboru (napr. `assets/SlovakianSEBBible.jpg` alebo `assets/1En_sk.jpg`), automaticky ho nastaví ako oficiálnu obálku balíčka a zároveň ho vloží ako prvá vizuálna strana e-knihy.
+* **Interaktívne krížové odkazy:** Krížové referencie z OpenBible sa prevádzajú na klikateľné HTML hyperlinky (`<a href="matt.xhtml#v_2_1">Mt 2,1</a>`). Kliknutím v e-čítačke okamžite skočíte na cieľový verš.
+* **Dynamické nadpisy kapitol:** Kapitoly majú štruktúrovaný nadpis s názvom knižky a číslom kapitoly (napr. *Genezis 3*, *1. Kniha Henochova 5*).
+* **Automatycká tiráž a licencia:** Každá e-kniha obsahuje stranu *O tomto vydaní* s informáciami o licencii (MIT pre AI preklady, autorské práva SEB pre Bibliu).
+
+### Príkazy na vygenerovanie EPUB:
+
+```bash
+# Vygenerovanie štandardnej SEB Biblie
+python scripts/08_build_epub.py
+
+# Vygenerovanie apokryfnej knihy (napr. 1. Kniha Henochova)
+python scripts/08_build_epub.py --xml data/raw/1En_sk.xml
+
+# Vygenerovanie Knihy Jubileí
+python scripts/08_build_epub.py --xml data/raw/Jubi_sk.xml
+
+```
 
 ---
 
@@ -118,6 +152,7 @@ Príkaz automaticky:
 | **Generovanie MD** | `task markdown` | Vytvorí Markdown pre NotebookLM s odkazmi na verše, audio a Google Mapy. |
 | **Generovanie SQLite** | `task sqlite` | Vytvorí `biblia.sqlite` s tabuľkou veršov a full-textovým vyhľadávaním (FTS5). |
 | **Generovanie JSONL** | `task jsonl` | Vytvorí `biblia.jsonl` pre vektorové vyhľadávanie a trénovanie. |
+| **Generovanie EPUB** | `task epub` | Vygeneruje EPUB3 e-knihu s obálkou, tirážou a krížovými odkazmi. |
 | **Preklad apokryfov** | `python scripts/07_translate_apocrypha.py --book 1En -t 2` | Preloží nekanonickú knihu z OCP (napr. 1En, Jubi, 4Ezra) cez LM Studio do čistej slovenčiny. |
 | **Kompletný proces (All)** | `task all` | Spustí end-to-end proces od nuly (clean -> download -> parse-audio -> align-audio -> build). |
 | **Kompletné prečistenie** | `task clean` | Vymaže stiahnuté dáta v `data/raw/` aj výstupy v `outputs/` (audio v `data/audio/` a `audio_timestamps.json` ponechá). |
@@ -127,12 +162,17 @@ Príkaz automaticky:
 
 ## 🔍 Ako používať výstupy
 
-### 1. Google NotebookLM
+### 1. E-čítačky (Kindle / Kobo / Calibre)
+
+* Otvorte súbory z `outputs/epub/` v aplikácii Calibre alebo ich nahrajte priamo do svojej čítačky.
+* Kniha obsahuje plne funkčný systémový obsah kapitol (TOC), titulný cover, tiráž s licenciou a klikateľné krížové referencie medzi veršami.
+
+### 2. Google NotebookLM
 
 * Nahrajte vygenerované súbory z `outputs/markdown/` (cca 7 súborov, limit je 50 zdrojov).
 * AI má v jednom textovom bloku samotný verš, krížové referencie *(porov. ...)*, lokáciu s GPS odkazom na Google Maps a cestu k lokálnej audio nahrávke.
 
-### 2. Antigravity / SQLite
+### 3. Antigravity / SQLite
 
 Databáza obsahuje tabuľku `verses` a virtuálnu tabuľku `verses_fts`:
 
@@ -148,7 +188,7 @@ WHERE verses_fts MATCH 'Betlehem';
 
 ```
 
-### 3. Vektorové databázy (ChromaDB / LangChain)
+### 4. Vektorové databázy (ChromaDB / LangChain)
 
 Každý riadok v `outputs/jsonl/biblia.jsonl` predstavuje jeden verš s metadátami:
 

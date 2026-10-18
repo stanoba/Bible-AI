@@ -58,7 +58,8 @@ bible-ai/
 │   ├── 06_align_audio.py         # Extrakcia časových značiek veršov z MP3 cez faster-whisper
 │   ├── 07_translate_apocrypha.py # Paralelný dvojprechodový preklad OCP apokryfov cez LM Studio
 │   ├── 08_build_epub.py          # Generovanie EPUB3 e-kníh s obálkami a krížovými odkazmi
-│   └── 09_translate_deepl.py     # Rýchly vysoko kvalitný preklad OCP apokryfov cez DeepL API
+│   ├── 09_translate_deepl.py     # Rýchly preklad OCP apokryfov cez DeepL API
+│   └── 10_translate_gemini.py    # Priamy verný preklad z gréčtiny a latinčiny cez Google Gemini API
 └── outputs/
     ├── markdown/                 # Markdown súbory (Biblia_Cast_01.md .. 07.md)
     ├── sqlite/                   # Databáza biblia.sqlite
@@ -178,6 +179,35 @@ python scripts/07_translate_apocrypha.py --book 1En -t 2
 
 ---
 
+## ⚡ Priamy preklad z gréčtiny a latinčiny cez Gemini API (`scripts/10_translate_gemini.py`)
+
+Pre najvyššiu možnú teologickú a textovú vernosť slúži `10_translate_gemini.py`. Na rozdiel od sprostredkovaných prekladov z angličtiny (kde vznikajú nepresnosti a anachronizmy) prekladá model **priamo zo starovekej gréčtiny (Koine) alebo latinčiny** do bohatej slovenskej biblickej terminológie.
+
+### Kľúčové výhody:
+* **Jazyková priorita originálov:** Skript prioritne vyberá grécke a latinské texty OCP repozitára pred anglickými verziami.
+* **Prirodzený biblický slovník:** Presne prekladá biblické idiómy (napr. *prepílený vo dvoje*, *archa zmluvy*, *vyvieranie Siloe*, *hadobijci*).
+* **Dávkové spracovanie (Batching):** Prekladá text v dávkach po 50 veršov cez štruktúrovaný JSON, čo zaručuje bleskovú rýchlosť a ukladanie priebežného checkpointu.
+* **Model:** Predvolene využíva najnovší **`gemini-3.8-flash`**.
+
+### Nastavenie API kľúča:
+Získajte bezplatný API kľúč na [Google AI Studio](https://aistudio.google.com/) a nastavte premennú:
+* **Windows (PowerShell):** `$env:GEMINI_API_KEY="VÁŠ_GEMINI_API_KĽÚČ"`
+* **Linux / macOS:** `export GEMINI_API_KEY="VÁŠ_GEMINI_API_KĽÚČ"`
+
+### Príklady spustenia:
+```bash
+# Preklad Životov prorokov z gréckeho originálu
+python scripts/10_translate_gemini.py --book LivPro
+
+# Preklad Sibiliných proroctiev
+python scripts/10_translate_gemini.py --book SibOr
+
+# Preklad Prvej knihy Henochovej
+python scripts/10_translate_gemini.py --book 1En --model gemini-3.8-flash
+```
+
+---
+
 ## 🛠️ Jednotlivé úlohy
 
 | Úloha | Príkaz | Popis |
@@ -189,6 +219,7 @@ python scripts/07_translate_apocrypha.py --book 1En -t 2
 | **Generovanie SQLite** | `task sqlite` | Vytvorí `biblia.sqlite` s tabuľkou veršov a full-textovým vyhľadávaním (FTS5). |
 | **Generovanie JSONL** | `task jsonl` | Vytvorí `biblia.jsonl` pre vektorové vyhľadávanie a trénovanie. |
 | **Generovanie EPUB** | `task epub` | Vygeneruje EPUB3 e-knihu s obálkou, tirážou a krížovými odkazmi. |
+| **Preklad cez Gemini API** | `python scripts/10_translate_gemini.py --book LivPro` | Priamy a najvernejší preklad z gréčtiny a latinčiny cez Google Gemini API. |
 | **Preklad cez DeepL** | `python scripts/09_translate_deepl.py --book SibOr -t 2` | Rýchly preklad OCP apokryfu do slovenčiny cez oficiálne DeepL API. |
 | **Preklad cez LM Studio** | `python scripts/07_translate_apocrypha.py --book 1En -t 2` | Offline dvojprechodový preklad OCP apokryfu cez lokálny LLM model. |
 | **Kompletný proces (All)** | `task all` | Spustí end-to-end proces od nuly (clean -> download -> parse-audio -> align-audio -> build). |

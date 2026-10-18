@@ -115,7 +115,7 @@ APOCRYPHA_BOOKS = {
     "SibOr": {
         "name_sk": "Sibiline proroctvá",
         "url": "https://raw.githubusercontent.com/OnlineCriticalPseudepigrapha/Online-Critical-Pseudepigrapha/master/static/docs/SibOr.xml",
-        "version_priority": ["Greek (English)", "English", "Greek"],
+        "version_priority": ["Greek","Greek (English)", "English"],
     },
     "PssSol": {
         "name_sk": "Šalamúnove žalmy",
